@@ -10,12 +10,27 @@ public abstract class BodyPointsProvider: MonoBehaviour {
     // - 0 absent (ignore the value)
     // - 1 capted (the value is valid)
     // - 2 guessed
-    public class BodyPoints {
-        public Vector4 leftWrist = Vector4.zero;
-        public Vector4 rightWrist = Vector4.zero;
-        public Vector4 leftIndex = Vector4.zero;
-        public Vector4 rightIndex = Vector4.zero;
-        public Vector4 head = Vector4.zero;
+    [System.Serializable]
+    public struct BodyPoints {
+        public Vector4 leftWrist;
+        public Vector4 rightWrist;
+        public Vector4 leftIndex;
+        public Vector4 rightIndex;
+        public Vector4 head;
+
+        public static BodyPoints Default = new BodyPoints{
+            leftWrist = Vector4.zero,
+            rightWrist = Vector4.zero,
+            leftIndex = Vector4.zero,
+            rightIndex = Vector4.zero,
+            head = Vector4.zero,
+        };
+    }
+
+    public delegate void BodyPointsUpdated(BodyPoints newPoints);
+    public event BodyPointsUpdated BodyPointsUpdatedEvent;
+    public void EmitBodyPointsUpdatedEvent(BodyPoints bodyPoints) {
+        BodyPointsUpdatedEvent?.Invoke(bodyPoints);
     }
 }
 

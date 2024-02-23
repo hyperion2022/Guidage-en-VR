@@ -8,6 +8,8 @@ using static BodyPointsProvider;
 
 public class CalibrationManager : MonoBehaviour
 {
+    [SerializeField]
+    BodyPointsProvider bodyPointsProvider;
     public GameObject[] corners;
     public GameObject center;
     public Text instructionText;
@@ -39,13 +41,13 @@ public class CalibrationManager : MonoBehaviour
 
     private Vector2 Detection()
     {
-        BodyPoints currentBodyPoints = GetBodyPoints();
+        BodyPoints currentBodyPoints = bodyPointsProvider.GetBodyPoints();
 
         Vector3 pointOnScreen = pointAtZ(currentBodyPoints.rightWrist, currentBodyPoints.rightIndex, screenPoints[0].z);
         float posX = (pointOnScreen.x - screenPoints[0].x) / (screenPoints[1].x - screenPoints[0].x);
         float posY = (pointOnScreen.y - screenPoints[0].y) / (screenPoints[2].y - screenPoints[0].y);
 
-        // pos sur l'écran entre 0 et 1
+        // pos sur l'ï¿½cran entre 0 et 1
         return new Vector2 (posX, posY);
     }
 
@@ -71,7 +73,7 @@ public class CalibrationManager : MonoBehaviour
 
         switch (counter)
         {
-            // Rajouter le choix de la main dominante, on suppose droitier au départ
+            // Rajouter le choix de la main dominante, on suppose droitier au dï¿½part
             case 1: message = "1. Point towards the upper-left corner and validate it when you are ready."; break;
             case 2: message = "2. Point towards the upper-right corner and validate it when you are ready."; break;
             case 3: message = "3. Point towards the lower-left corner and validate it when you are ready."; break;
@@ -79,7 +81,7 @@ public class CalibrationManager : MonoBehaviour
             case 5: message = "5. a) Point towards the center from your left side and validate it when you are ready."; break;
             case 6: message = "5. b) Point towards the center from your right side and validate it when you are ready."; break;
             case 7: message = "You have finished the calibration step! Validate again to exit."; break;
-            case 8: CornerCoordsFromBodyPoints(bodyPoints); break; // désactiver l'interface de calibration
+            case 8: CornerCoordsFromBodyPoints(bodyPoints); break; // dï¿½sactiver l'interface de calibration
             default: message = "Error!";  break;
         }
 
@@ -103,7 +105,7 @@ public class CalibrationManager : MonoBehaviour
         Vector3 B = new Vector3(dirRightCenter.x, dirRightCenter.y, dirRightCenter.z);
         Vector3 centerPoint = intersectionPoint(p1, p2, A, B);
 
-        // 3 points forment un plan/rectangle, le 4e peut sortir de ce plan à cause d'imprécisions de calcul
+        // 3 points forment un plan/rectangle, le 4e peut sortir de ce plan ï¿½ cause d'imprï¿½cisions de calcul
         Vector3 cornerUL = pointAtZ(bodyPoints[0].rightWrist, bodyPoints[0].rightIndex, centerPoint.z);
         Vector3 cornerUR = pointAtZ(bodyPoints[1].rightWrist, bodyPoints[1].rightIndex, centerPoint.z);
         Vector3 cornerLR = pointAtZ(bodyPoints[2].rightWrist, bodyPoints[2].rightIndex, centerPoint.z);
