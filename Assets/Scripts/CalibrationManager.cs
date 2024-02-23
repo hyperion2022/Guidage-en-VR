@@ -13,6 +13,7 @@ public class CalibrationManager : MonoBehaviour
     public GameObject[] corners;
     public GameObject center;
     public Text instructionText;
+    public GameObject UI;
     private int counter;
     private string message;
     private BodyPoints[] bodyPoints;
@@ -81,7 +82,7 @@ public class CalibrationManager : MonoBehaviour
             case 5: message = "5. a) Point towards the center from your left side and validate it when you are ready."; break;
             case 6: message = "5. b) Point towards the center from your right side and validate it when you are ready."; break;
             case 7: message = "You have finished the calibration step! Validate again to exit."; break;
-            case 8: CornerCoordsFromBodyPoints(bodyPoints); break; // d�sactiver l'interface de calibration
+            case 8: UI.SetActive(false); CornerCoordsFromBodyPoints(bodyPoints); break; // d�sactiver l'interface de calibration
             default: message = "Error!";  break;
         }
 
@@ -114,6 +115,10 @@ public class CalibrationManager : MonoBehaviour
         screenPoints[0] = cornerUL;
         screenPoints[1] = cornerUR;
         screenPoints[2] = cornerLR;
+
+        Debug.Log(screenPoints[0]);
+        Debug.Log(screenPoints[1]);
+        Debug.Log(screenPoints[2]);
     }
 
     private Vector3 pointAtZ(Vector3 p1, Vector3 A, float z) 
