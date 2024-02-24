@@ -15,6 +15,11 @@ public class CalibrationManager : MonoBehaviour
     public Text instructionText;
     private int counter;
     private string message;
+
+    private struct BodyPoints {
+        public Vector4 rightWrist;
+        public Vector4 rightIndex;
+    }
     private BodyPoints[] bodyPoints;
     private Vector3[] screenPoints;
 
@@ -31,7 +36,7 @@ public class CalibrationManager : MonoBehaviour
             corner.GetComponent<Image>().color = Color.red;
         }
 
-        bodyPoints = new BodyPoints[6];
+        // bodyPoints = new BodyPoints[6];
         screenPoints = new Vector3[3];
 
         counter = 0;
@@ -41,9 +46,10 @@ public class CalibrationManager : MonoBehaviour
 
     private Vector2 Detection()
     {
-        BodyPoints currentBodyPoints = bodyPointsProvider.GetBodyPoints();
+        var rightWrist = bodyPointsProvider.GetBodyPoint(Key.RightWrist);
+        var rightIndex = bodyPointsProvider.GetBodyPoint(Key.LeftIndex);
 
-        Vector3 pointOnScreen = pointAtZ(currentBodyPoints.rightWrist, currentBodyPoints.rightIndex, screenPoints[0].z);
+        Vector3 pointOnScreen = pointAtZ(rightWrist, rightIndex, screenPoints[0].z);
         float posX = (pointOnScreen.x - screenPoints[0].x) / (screenPoints[1].x - screenPoints[0].x);
         float posY = (pointOnScreen.y - screenPoints[0].y) / (screenPoints[2].y - screenPoints[0].y);
 

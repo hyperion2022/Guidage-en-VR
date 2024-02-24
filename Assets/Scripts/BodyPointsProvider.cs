@@ -1,36 +1,47 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 // https://github.com/keijiro/HandPoseBarracuda
 public abstract class BodyPointsProvider: MonoBehaviour {
-    public abstract BodyPoints GetBodyPoints();
 
     // Each joint is a vector4 with (x, y, z, w)
     // the W component means:
-    // - 0 absent (ignore the value)
-    // - 1 capted (the value is valid)
-    // - 2 guessed
-    [System.Serializable]
-    public struct BodyPoints {
-        public Vector4 leftWrist;
-        public Vector4 rightWrist;
-        public Vector4 leftIndex;
-        public Vector4 rightIndex;
-        public Vector4 head;
+    // - 0 absent (ignore the value) GREY
+    // - 1 capted (the value is valid) GREEN
+    // - 2 guessed BLUE
+    // - 3 error (the value could not be computed) RED
+    public abstract Vector4 GetBodyPoint(Key key);
+    public abstract Key[] AvailablePoints { get; }
 
-        public static BodyPoints Default = new BodyPoints{
-            leftWrist = Vector4.zero,
-            rightWrist = Vector4.zero,
-            leftIndex = Vector4.zero,
-            rightIndex = Vector4.zero,
-            head = Vector4.zero,
-        };
+    public enum Key {
+        Head,
+        LeftWrist,
+        LeftIndex,
+        LeftIndex1,
+        LeftIndex2,
+        LeftIndex3,
+        LeftThumb,
+        LeftThumb1,
+        LeftThumb2,
+        LeftThumb3,
+        RightWrist,
+        RightIndex,
+        RightIndex1,
+        RightIndex2,
+        RightIndex3,
+        RightThumb,
+        RightThumb1,
+        RightThumb2,
+        RightThumb3,
     }
-
-    public delegate void BodyPointsUpdated(BodyPoints newPoints);
+    public delegate void BodyPointsUpdated(BodyPointsProvider provider);
     public event BodyPointsUpdated BodyPointsUpdatedEvent;
-    public void EmitBodyPointsUpdatedEvent(BodyPoints bodyPoints) {
-        BodyPointsUpdatedEvent?.Invoke(bodyPoints);
+    public void EmitBodyPointsUpdatedEvent() {
+        BodyPointsUpdatedEvent?.Invoke(this);
     }
+
+    public static string KeyToJson(Key key) => "\"" + key.ToString() + "\"";
 }
 

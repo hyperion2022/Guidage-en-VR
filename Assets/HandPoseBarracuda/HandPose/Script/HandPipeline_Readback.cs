@@ -41,8 +41,9 @@ sealed partial class HandPipeline
     System.Action<AsyncGPUReadbackRequest> ReadbackCompleteAction
       => OnReadbackComplete;
 
-    void OnReadbackComplete(AsyncGPUReadbackRequest req)
-      => req.GetData<Vector4>().CopyTo(_readCache);
+    void OnReadbackComplete(AsyncGPUReadbackRequest req) {
+      req.GetData<Vector4>().CopyTo(_readCache);
+    }
 
     #endregion
 }

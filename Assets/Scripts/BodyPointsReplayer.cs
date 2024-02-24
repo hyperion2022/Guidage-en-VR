@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using Body = System.Collections.Generic.Dictionary<BodyPointsProvider.Key, UnityEngine.Vector4>;
 
 public class BodyPointsReplayer : BodyPointsProvider
 {
@@ -10,9 +11,10 @@ public class BodyPointsReplayer : BodyPointsProvider
     
     Recorded recorded;
     int i = 0;
-    BodyPoints bodyPoints;
+    Body bodyPoints;
 
-    public override BodyPoints GetBodyPoints() => bodyPoints;
+    public override Key[] AvailablePoints => recorded.available;
+    public override Vector4 GetBodyPoint(Key key) => bodyPoints[key];
 
     void Start()
     {
@@ -22,7 +24,7 @@ public class BodyPointsReplayer : BodyPointsProvider
     void CallBack() {
         bodyPoints = recorded.recs[i % recorded.recs.Length];
         i += 1;
-        EmitBodyPointsUpdatedEvent(bodyPoints);
+        EmitBodyPointsUpdatedEvent();
     }
 
 
@@ -30,6 +32,7 @@ public class BodyPointsReplayer : BodyPointsProvider
     private struct Recorded
     {
         public float rate;
-        public BodyPoints[] recs;
+        public Key[] available;
+        public Body[] recs;
     }
 }

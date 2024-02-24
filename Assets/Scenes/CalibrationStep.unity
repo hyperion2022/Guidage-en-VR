@@ -345,6 +345,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: BodyPointsFromKinect
       objectReference: {fileID: 0}
+    - target: {fileID: 7140384736575927357, guid: c2f9f459dea089a4ba0f24c04ed10723, type: 3}
+      propertyPath: log
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 8176907800498140814, guid: c2f9f459dea089a4ba0f24c04ed10723, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0

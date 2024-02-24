@@ -1,8 +1,7 @@
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
-using Body = BodyPointsProvider.BodyPoints;
+using Body = System.Collections.Generic.Dictionary<BodyPointsProvider.Key, UnityEngine.Vector4>;
 
 public class BodyPointsRecorder : MonoBehaviour
 {
@@ -22,22 +21,34 @@ public class BodyPointsRecorder : MonoBehaviour
 
     public void CallBack()
     {
-        recorded.Add(bodyPointsProvider.GetBodyPoints());
+        var body = new Body();
+        foreach (var k in bodyPointsProvider.AvailablePoints)
+        {
+            body[k] = bodyPointsProvider.GetBodyPoint(k);
+        }
+        recorded.Add(body);
     }
 
     public void OnDestroy()
     {
-        File.WriteAllText(outputFilePath, JsonUtility.ToJson(new Recorded
-        {
-            rate = capturesPerSecond,
-            recs = recorded.ToArray()
-        }));
+        File.WriteAllText(outputFilePath, Json.DictWriter
+            .Field("rate", capturesPerSecond.ToString())
+            .Field("available", Json.ListToJson(
+                bodyPointsProvider.AvailablePoints,
+                BodyPointsProvider.KeyToJson
+            ))
+            .Field("recs", Json.ListToJson(recorded, rec =>
+                Json.DictToJson(rec, BodyPointsProvider.KeyToJson, v => Json.AnyToJson(v))
+            ))
+            .ToJson()
+        );
     }
 
-    [System.Serializable]
-    private struct Recorded
-    {
-        public float rate;
-        public Body[] recs;
-    }
+    // [System.Serializable]
+    // private struct Recorded
+    // {
+    //     public float rate;
+    //     public string[] available;
+    //     public Body[] recs;
+    // }
 }
