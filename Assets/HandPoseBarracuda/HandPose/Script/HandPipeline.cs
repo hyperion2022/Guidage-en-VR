@@ -5,13 +5,8 @@ using UnityEngine.Rendering;
 
 namespace MediaPipe.HandPose {
 
-//
-// Basic implementation of the hand pipeline class
-//
-
 sealed partial class HandPipeline : System.IDisposable
 {
-    #region Private objects
 
     const int CropSize = HandLandmarkDetector.ImageSize;
     int InputWidth => _detector.palm.ImageSize;
@@ -20,10 +15,6 @@ sealed partial class HandPipeline : System.IDisposable
     (PalmDetector palm, HandLandmarkDetector landmark) _detector;
     (ComputeBuffer region, ComputeBuffer filter) _buffer;
     GlobalKeyword _keywordNchw;
-
-    #endregion
-
-    #region Object allocation/deallocation
 
     void AllocateObjects(ResourceSet resources)
     {
@@ -49,8 +40,13 @@ sealed partial class HandPipeline : System.IDisposable
         _buffer.region.Dispose();
         _buffer.filter.Dispose();
     }
+    
+    Vector4[] HandPoints = new Vector4[HandProvider.KeyPointCount];
 
-    #endregion
+    System.Action<AsyncGPUReadbackRequest> ReadbackCompleteAction => req => {
+      req.GetData<Vector4>().CopyTo(HandPoints);
+      BodyPointsUpdatedEvent?.Invoke();
+    };
 }
 
 } // namespace MediaPipe.HandPose

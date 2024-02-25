@@ -20,18 +20,5 @@ namespace MediaPipe.HandPose {
             Ring1,   Ring2,   Ring3,   Ring4,
             Pinky1,  Pinky2,  Pinky3,  Pinky4
         }
-
-        // this is to serialize a list of hand positions to JSON
-        // we need 2 struct, because the JSON serializer of C# is too stupid to serialize arrays
-        [Serializable]
-        public struct Recorded {
-            public float rate;
-            public Hand[] recs;
-        }
-        [Serializable]
-        public struct Hand {
-            public Vector4[] points;
-        }
- 
     }
 }
