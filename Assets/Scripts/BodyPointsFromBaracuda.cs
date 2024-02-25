@@ -74,7 +74,7 @@ public class BodyPointsFromBaracuda : BodyPointsProvider
     }
 
     void NewPoints() {
-        handPoints = pipeline.GetKeyPoints();
+        handPoints = pipeline.HandPoints;
         EmitBodyPointsUpdatedEvent();
     }
 

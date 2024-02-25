@@ -3,50 +3,102 @@ using MediaPipe.HandLandmark;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace MediaPipe.HandPose {
-
-sealed partial class HandPipeline : System.IDisposable
+namespace MediaPipe.HandPose
 {
-
-    const int CropSize = HandLandmarkDetector.ImageSize;
-    int InputWidth => _detector.palm.ImageSize;
-
-    ResourceSet _resources;
-    (PalmDetector palm, HandLandmarkDetector landmark) _detector;
-    (ComputeBuffer region, ComputeBuffer filter) _buffer;
-    GlobalKeyword _keywordNchw;
-
-    void AllocateObjects(ResourceSet resources)
+    sealed class HandPipeline : System.IDisposable
     {
-        _resources = resources;
+        public Vector4[] HandPoints = new Vector4[KeyPointCount];
+        public const int KeyPointCount = 21;
+        // public enum KeyPoint {
+        //     Wrist,
+        //     Thumb1, Thumb2, Thumb3, Thumb4,
+        //     Index1, Index2, Index3, Index4,
+        //     Middle1, Middle2, Middle3, Middle4,
+        //     Ring1, Ring2, Ring3, Ring4,
+        //     Pinky1, Pinky2, Pinky3, Pinky4
+        // }
 
-        _detector = (new PalmDetector(_resources.blazePalm),
-                     new HandLandmarkDetector(_resources.handLandmark));
+        readonly ResourceSet resourceSet;
+        readonly PalmDetector palm;
+        readonly HandLandmarkDetector landmark;
+        public readonly ComputeBuffer KeyPointBuffer;
+        public readonly ComputeBuffer HandRegionBuffer;
+        public ComputeBuffer HandRegionCropBuffer => landmark.InputBuffer;
 
-        var regionStructSize = sizeof(float) * 24;
-        var filterBufferLength = HandLandmarkDetector.VertexCount * 2;
+        public HandPipeline(ResourceSet resources)
+        {
+            resourceSet = resources;
 
-        _buffer = (new ComputeBuffer(1, regionStructSize),
-                   new ComputeBuffer(filterBufferLength, sizeof(float) * 4));
+            palm = new PalmDetector(resourceSet.blazePalm);
+            landmark = new HandLandmarkDetector(resourceSet.handLandmark);
 
-        _keywordNchw = GlobalKeyword.Create("NCHW_INPUT");
-        Shader.SetKeyword(_keywordNchw, _detector.palm.InputIsNCHW);
+            var regionStructSize = sizeof(float) * 24;
+            var filterBufferLength = HandLandmarkDetector.VertexCount * 2;
+
+            HandRegionBuffer = new ComputeBuffer(1, regionStructSize);
+            KeyPointBuffer = new ComputeBuffer(filterBufferLength, sizeof(float) * 4);
+
+            Shader.SetKeyword(GlobalKeyword.Create("NCHW_INPUT"), palm.InputIsNCHW);
+        }
+
+        public void Dispose()
+        {
+            palm.Dispose();
+            landmark.Dispose();
+            HandRegionBuffer.Dispose();
+            KeyPointBuffer.Dispose();
+        }
+
+        public void ProcessImage(Texture input)
+        {
+            var cs = resourceSet.compute;
+
+            // Letterboxing scale factor
+            var scale = new Vector2
+              (Mathf.Max((float)input.height / input.width, 1f),
+               Mathf.Max((float)input.width / input.height, 1f));
+
+            // Image scaling and padding
+            cs.SetInt("_spad_width", palm.ImageSize);
+            cs.SetVector("_spad_scale", scale);
+            cs.SetTexture(0, "_spad_input", input);
+            cs.SetBuffer(0, "_spad_output", palm.InputBuffer);
+            cs.Dispatch(0, palm.ImageSize / 8, palm.ImageSize / 8, 1);
+
+            // Palm detection
+            palm.ProcessInput();
+
+            // Hand region bounding box update
+            cs.SetFloat("_bbox_dt", Time.deltaTime);
+            cs.SetBuffer(1, "_bbox_count", palm.CountBuffer);
+            cs.SetBuffer(1, "_bbox_palm", palm.DetectionBuffer);
+            cs.SetBuffer(1, "_bbox_region", HandRegionBuffer);
+            cs.Dispatch(1, 1, 1, 1);
+
+            // Hand region cropping
+            cs.SetTexture(2, "_crop_input", input);
+            cs.SetBuffer(2, "_crop_region", HandRegionBuffer);
+            cs.SetBuffer(2, "_crop_output", landmark.InputBuffer);
+            cs.Dispatch(2, HandLandmarkDetector.ImageSize / 8, HandLandmarkDetector.ImageSize / 8, 1);
+
+            // Hand landmark detection
+            landmark.ProcessInput();
+
+            // Key point postprocess
+            cs.SetFloat("_post_dt", Time.deltaTime);
+            cs.SetFloat("_post_scale", scale.y);
+            cs.SetBuffer(3, "_post_input", landmark.OutputBuffer);
+            cs.SetBuffer(3, "_post_region", HandRegionBuffer);
+            cs.SetBuffer(3, "_post_output", KeyPointBuffer);
+            cs.Dispatch(3, 1, 1, 1);
+
+            AsyncGPUReadback.Request(KeyPointBuffer, KeyPointCount * sizeof(float) * 4, 0, req =>
+            {
+                req.GetData<Vector4>().CopyTo(HandPoints);
+                BodyPointsUpdatedEvent?.Invoke();
+            });
+        }
+        public delegate void BodyPointsUpdated();
+        public event BodyPointsUpdated BodyPointsUpdatedEvent;
     }
-
-    void DeallocateObjects()
-    {
-        _detector.palm.Dispose();
-        _detector.landmark.Dispose();
-        _buffer.region.Dispose();
-        _buffer.filter.Dispose();
-    }
-    
-    Vector4[] HandPoints = new Vector4[HandProvider.KeyPointCount];
-
-    System.Action<AsyncGPUReadbackRequest> ReadbackCompleteAction => req => {
-      req.GetData<Vector4>().CopyTo(HandPoints);
-      BodyPointsUpdatedEvent?.Invoke();
-    };
 }
-
-} // namespace MediaPipe.HandPose
