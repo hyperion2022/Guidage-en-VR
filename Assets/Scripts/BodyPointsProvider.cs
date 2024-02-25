@@ -20,6 +20,12 @@ public abstract class BodyPointsProvider: MonoBehaviour {
     public abstract Vector4 GetBodyPoint(Key key);
     public abstract Key[] AvailablePoints { get; }
 
+    public delegate void BodyPointsUpdated();
+    public event BodyPointsUpdated BodyPointsUpdatedEvent;
+    public void EmitBodyPointsUpdatedEvent() {
+        BodyPointsUpdatedEvent?.Invoke();
+    }
+    
     public enum Key {
         Head,
         LeftWrist,
@@ -31,6 +37,18 @@ public abstract class BodyPointsProvider: MonoBehaviour {
         LeftThumb1,
         LeftThumb2,
         LeftThumb3,
+        LeftMiddle,
+        LeftMiddle1,
+        LeftMiddle2,
+        LeftMiddle3,
+        LeftRing,
+        LeftRing1,
+        LeftRing2,
+        LeftRing3,
+        LeftPinky,
+        LeftPinky1,
+        LeftPinky2,
+        LeftPinky3,
         RightWrist,
         RightIndex,
         RightIndex1,
@@ -40,13 +58,18 @@ public abstract class BodyPointsProvider: MonoBehaviour {
         RightThumb1,
         RightThumb2,
         RightThumb3,
+        RightMiddle,
+        RightMiddle1,
+        RightMiddle2,
+        RightMiddle3,
+        RightRing,
+        RightRing1,
+        RightRing2,
+        RightRing3,
+        RightPinky,
+        RightPinky1,
+        RightPinky2,
+        RightPinky3,
     }
-    public delegate void BodyPointsUpdated();
-    public event BodyPointsUpdated BodyPointsUpdatedEvent;
-    public void EmitBodyPointsUpdatedEvent() {
-        BodyPointsUpdatedEvent?.Invoke();
-    }
-
-    public static string KeyToJson(Key key) => "\"" + key.ToString() + "\"";
 }
 

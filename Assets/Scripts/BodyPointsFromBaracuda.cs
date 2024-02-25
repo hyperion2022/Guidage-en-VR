@@ -3,6 +3,8 @@ using UnityEngine.Assertions;
 using Windows.Kinect;
 using MediaPipe.HandPose;
 using Vector4 = UnityEngine.Vector4;
+using System.Linq;
+using System.Collections.Generic;
 
 public class BodyPointsFromBaracuda : BodyPointsProvider
 {
@@ -15,9 +17,35 @@ public class BodyPointsFromBaracuda : BodyPointsProvider
     private Texture2D texture;
 
     HandPipeline pipeline;
+    Vector4[] handPoints;
+
+    Dictionary<Key, int> availablePoints = new Dictionary<Key, int>{
+        [Key.LeftWrist] = 0,
+        [Key.LeftThumb1] = 1,
+        [Key.LeftThumb2] = 2,
+        [Key.LeftThumb3] = 3,
+        [Key.LeftThumb] = 4,
+        [Key.LeftIndex1] = 5,
+        [Key.LeftIndex2] = 6,
+        [Key.LeftIndex3] = 7,
+        [Key.LeftIndex] = 8,
+        [Key.LeftMiddle1] = 9,
+        [Key.LeftMiddle2] = 10,
+        [Key.LeftMiddle3] = 11,
+        [Key.LeftMiddle] = 12,
+        [Key.LeftRing1] = 13,
+        [Key.LeftRing2] = 14,
+        [Key.LeftRing3] = 15,
+        [Key.LeftRing] = 16,
+        [Key.LeftPinky1] = 17,
+        [Key.LeftPinky2] = 18,
+        [Key.LeftPinky3] = 19,
+        [Key.LeftPinky] = 20,
+    };
 
     void Start()
     {
+        handPoints = AvailablePoints.Select(_ => Vector4.zero).ToArray();
         pipeline = new HandPipeline(resources);
         kinect = KinectSensor.GetDefault();
         if (!kinect.IsOpen) {
@@ -32,6 +60,7 @@ public class BodyPointsFromBaracuda : BodyPointsProvider
         rawImage = new byte[desc.LengthInPixels * desc.BytesPerPixel];
         texture = new Texture2D(desc.Width, desc.Height, TextureFormat.RGBA32, false);
         colorReader.FrameArrived += HandleFrame;
+        pipeline.BodyPointsUpdatedEvent += NewPoints;
     }
 
     void HandleFrame(object _, ColorFrameArrivedEventArgs arg) {
@@ -44,6 +73,11 @@ public class BodyPointsFromBaracuda : BodyPointsProvider
         pipeline.ProcessImage(texture);
     }
 
+    void NewPoints() {
+        handPoints = pipeline.GetKeyPoints();
+        EmitBodyPointsUpdatedEvent();
+    }
+
     void OnDestroy() {
         colorReader.Dispose();
         colorReader = null;
@@ -52,26 +86,6 @@ public class BodyPointsFromBaracuda : BodyPointsProvider
         kinect = null;
     }
 
-    // public override BodyPoints GetBodyPoints() {
-    //     var bodyPoints = BodyPoints.empty;
-    //     var handPoints = pipeline.GetKeyPoints();
-    //     bodyPoints.leftWrist = handPoints[(int)HandProvider.KeyPoint.Wrist];
-    //     bodyPoints.leftWrist.w = 1f;
-    //     bodyPoints.leftIndex = handPoints[(int)HandProvider.KeyPoint.Index4];
-    //     bodyPoints.leftIndex.w = 1f;
-    //     bodyPoints.leftThumb = handPoints[(int)HandProvider.KeyPoint.Thumb4];
-    //     bodyPoints.leftThumb.w = 1f;
-    //     return bodyPoints;
-    // }
-    public override Vector4 GetBodyPoint(Key key)
-    {
-        var handPoints = pipeline.GetKeyPoints();
-        return key switch {
-            Key.LeftWrist => handPoints[0],
-            Key.LeftIndex => handPoints[8],
-            Key.LeftThumb => handPoints[4],
-            _ => Vector4.zero,
-        };
-    }
-    public override Key[] AvailablePoints => new Key[]{Key.LeftWrist, Key.LeftIndex, Key.LeftThumb};
+    public override Vector4 GetBodyPoint(Key key) => availablePoints.ContainsKey(key) ? handPoints[availablePoints[key]] : Vector4.zero;
+    public override Key[] AvailablePoints => availablePoints.Keys.ToArray();
 }

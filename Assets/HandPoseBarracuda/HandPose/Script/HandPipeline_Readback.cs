@@ -8,8 +8,6 @@ namespace MediaPipe.HandPose {
 
 sealed partial class HandPipeline
 {
-    #region Read cache operations
-
     Vector4[] _readCache = new Vector4[HandProvider.KeyPointCount];
     bool _readFlag;
 
@@ -32,10 +30,6 @@ sealed partial class HandPipeline
             _readFlag = false;
     }
 
-    #endregion
-
-    #region GPU async operation callback
-
     const int ReadbackBytes = HandProvider.KeyPointCount * sizeof(float) * 4;
 
     System.Action<AsyncGPUReadbackRequest> ReadbackCompleteAction
@@ -43,9 +37,8 @@ sealed partial class HandPipeline
 
     void OnReadbackComplete(AsyncGPUReadbackRequest req) {
       req.GetData<Vector4>().CopyTo(_readCache);
+      BodyPointsUpdatedEvent?.Invoke();
     }
-
-    #endregion
 }
 
 } // namespace MediaPipe.HandPose

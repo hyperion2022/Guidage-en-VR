@@ -30,6 +30,10 @@ public class BodyPointsVisualizer : MonoBehaviour
         };
     }
 
+    void OnDestroy() {
+        bodyPointsProvider.BodyPointsUpdatedEvent -= NewPoints;
+    }
+
     void NewPoints()
     {
         foreach (var (k, t) in nodes) {

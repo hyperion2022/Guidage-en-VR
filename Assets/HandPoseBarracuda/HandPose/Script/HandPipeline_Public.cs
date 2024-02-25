@@ -8,14 +8,7 @@ namespace MediaPipe.HandPose {
 
 partial class HandPipeline
 {
-    #region Detection data accessors
-    
     public Vector4[] GetKeyPoints() => ReadCache;
-
-    #endregion
-
-    #region GPU-side resource accessors
-
     public ComputeBuffer KeyPointBuffer
       => _buffer.filter;
 
@@ -24,10 +17,6 @@ partial class HandPipeline
 
     public ComputeBuffer HandRegionCropBuffer
       => _detector.landmark.InputBuffer;
-
-    #endregion
-
-    #region Public properties and methods
 
     public bool UseAsyncReadback { get; set; } = true;
 
@@ -39,8 +28,8 @@ partial class HandPipeline
 
     public void ProcessImage(Texture image)
       => RunPipeline(image);
-
-    #endregion
+    public delegate void BodyPointsUpdated();
+    public event BodyPointsUpdated BodyPointsUpdatedEvent;
 }
 
 } // namespace MediaPipe.HandPose
