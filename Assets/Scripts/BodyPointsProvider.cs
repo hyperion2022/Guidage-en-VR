@@ -6,27 +6,21 @@ using UnityEngine;
 // https://github.com/keijiro/HandPoseBarracuda
 public abstract class BodyPointsProvider: MonoBehaviour {
 
-    // Each joint is a vector4 with (x, y, z, w)
-    // the W component means:
-    // - 0 absent (ignore the value) GREY
-    // - 1 capted (the value is valid) GREEN
-    // - 2 guessed BLUE
-    // - 3 error (the value could not be computed) RED
+    // Each joint is a vector4 with (x, y, z, w), the W component means:
     public static bool IsAbsent(Vector4 v) => v.w == 0f;
     public static bool IsTracked(Vector4 v) => v.w == 1f;
     public static bool IsGuessed(Vector4 v) => v.w == 2f;
     public static bool IsInvalid(Vector4 v) => v.w == 3f;
 
-    public abstract Vector4 GetBodyPoint(Key key);
-    public abstract Key[] AvailablePoints { get; }
+    public abstract Vector4 GetBodyPoint(BodyPoint bodyPoint);
+    // list of the available points, not all points have to be available,
+    // for instance, the kinect does not give hand points, and baracuda only gives hand points
+    public abstract BodyPoint[] AvailablePoints { get; }
 
-    public delegate void BodyPointsUpdated();
-    public event BodyPointsUpdated BodyPointsUpdatedEvent;
-    public void EmitBodyPointsUpdatedEvent() {
-        BodyPointsUpdatedEvent?.Invoke();
-    }
-    
-    public enum Key {
+    public event Action BodyPointsChanged;
+    public void RaiseBodyPointsChanged() => BodyPointsChanged?.Invoke();
+
+    public enum BodyPoint {
         Head,
         LeftWrist,
         LeftIndex,
@@ -72,4 +66,3 @@ public abstract class BodyPointsProvider: MonoBehaviour {
         RightPinky3,
     }
 }
-

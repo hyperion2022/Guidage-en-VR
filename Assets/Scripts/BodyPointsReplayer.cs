@@ -15,10 +15,10 @@ public class BodyPointsReplayer : BodyPointsProvider
     Recorded recorded;
     int i = 0;
     float[][] bodyPoints;
-    Dictionary<Key, int> available;
+    Dictionary<BodyPoint, int> available;
 
-    public override Key[] AvailablePoints => available.Keys.ToArray();
-    public override Vector4 GetBodyPoint(Key key) {
+    public override BodyPoint[] AvailablePoints => available.Keys.ToArray();
+    public override Vector4 GetBodyPoint(BodyPoint key) {
         var point = bodyPoints[available[key]];
         return new Vector4(point[0], point[1], point[2], point[3]);
     }
@@ -26,7 +26,7 @@ public class BodyPointsReplayer : BodyPointsProvider
     void Start()
     {
         recorded = JsonConvert.DeserializeObject<Recorded>(File.ReadAllText(inputFilePath));
-        available = recorded.columns.Select((key, i) => new {key, i}).ToDictionary(p => Enum.Parse<Key>(p.key), p => p.i);
+        available = recorded.columns.Select((key, i) => new {key, i}).ToDictionary(p => Enum.Parse<BodyPoint>(p.key), p => p.i);
         Assert.IsTrue(recorded.data.Length > 0);
         Assert.IsTrue(recorded.hertz > 0.00001f);
         foreach (var line in recorded.data) {
@@ -41,7 +41,7 @@ public class BodyPointsReplayer : BodyPointsProvider
     void CallBack() {
         bodyPoints = recorded.data[i];
         i = (i + 1) % recorded.data.Length;
-        EmitBodyPointsUpdatedEvent();
+        RaiseBodyPointsChanged();
     }
 
 

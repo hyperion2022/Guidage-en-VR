@@ -19,10 +19,16 @@ namespace MediaPipe.HandPose
         // }
 
         readonly ResourceSet resourceSet;
+
+        // this detect where the hand is on the image
         readonly PalmDetector palm;
+        public readonly ComputeBuffer HandRegionBuffer;
+
+        // this detect the hand points
         readonly HandLandmarkDetector landmark;
         public readonly ComputeBuffer KeyPointBuffer;
-        public readonly ComputeBuffer HandRegionBuffer;
+
+        
         public ComputeBuffer HandRegionCropBuffer => landmark.InputBuffer;
 
         public HandPipeline(ResourceSet resources)

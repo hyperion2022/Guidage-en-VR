@@ -45,7 +45,8 @@ public class BodyPointsFromKinect : BodyPointsProvider
         if (log) {
             Debug.Log("detected head position " + JointToVec4(bodies[0].Joints[JointType.Head]).ToString());
         }
-        EmitBodyPointsUpdatedEvent();
+        // BodyPointsUpdated();
+        RaiseBodyPointsChanged();
     }
 
     private static Vector4 JointToVec4(Joint joint)
@@ -69,18 +70,18 @@ public class BodyPointsFromKinect : BodyPointsProvider
     }
 
     // public override BodyPoints GetBodyPoints() => bodyPoints;
-    public override Vector4 GetBodyPoint(Key key)
+    public override Vector4 GetBodyPoint(BodyPoint key)
     {
         if (bodies[0] == null) return Vector4.zero;
         return key switch
         {
-            Key.Head => JointToVec4(bodies[0].Joints[JointType.Head]),
-            Key.LeftWrist => JointToVec4(bodies[0].Joints[JointType.WristLeft]),
-            Key.RightWrist => JointToVec4(bodies[0].Joints[JointType.WristRight]),
-            Key.LeftIndex => JointToVec4(bodies[0].Joints[JointType.HandTipLeft]),
-            Key.RightIndex => JointToVec4(bodies[0].Joints[JointType.HandTipRight]),
+            BodyPoint.Head => JointToVec4(bodies[0].Joints[JointType.Head]),
+            BodyPoint.LeftWrist => JointToVec4(bodies[0].Joints[JointType.WristLeft]),
+            BodyPoint.RightWrist => JointToVec4(bodies[0].Joints[JointType.WristRight]),
+            BodyPoint.LeftIndex => JointToVec4(bodies[0].Joints[JointType.HandTipLeft]),
+            BodyPoint.RightIndex => JointToVec4(bodies[0].Joints[JointType.HandTipRight]),
             _ => Vector4.zero,
         };
     }
-    public override Key[] AvailablePoints => new Key[] { Key.Head, Key.LeftWrist, Key.RightWrist, Key.LeftIndex, Key.RightIndex };
+    public override BodyPoint[] AvailablePoints => new BodyPoint[] { BodyPoint.Head, BodyPoint.LeftWrist, BodyPoint.RightWrist, BodyPoint.LeftIndex, BodyPoint.RightIndex };
 }

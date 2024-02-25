@@ -47,8 +47,8 @@ public class CalibrationManager : MonoBehaviour
 
     private Vector2 Detection()
     {
-        var rightWrist = bodyPointsProvider.GetBodyPoint(Key.RightWrist);
-        var rightIndex = bodyPointsProvider.GetBodyPoint(Key.LeftIndex);
+        var rightWrist = bodyPointsProvider.GetBodyPoint(BodyPoint.RightWrist);
+        var rightIndex = bodyPointsProvider.GetBodyPoint(BodyPoint.LeftIndex);
 
         Vector3 pointOnScreen = pointAtZ(rightWrist, rightIndex, screenPoints[0].z);
         float posX = (pointOnScreen.x - screenPoints[0].x) / (screenPoints[1].x - screenPoints[0].x);

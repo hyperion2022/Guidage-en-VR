@@ -19,28 +19,28 @@ public class BodyPointsFromBaracuda : BodyPointsProvider
     HandPipeline pipeline;
     Vector4[] handPoints;
 
-    Dictionary<Key, int> availablePoints = new Dictionary<Key, int>{
-        [Key.LeftWrist] = 0,
-        [Key.LeftThumb1] = 1,
-        [Key.LeftThumb2] = 2,
-        [Key.LeftThumb3] = 3,
-        [Key.LeftThumb] = 4,
-        [Key.LeftIndex1] = 5,
-        [Key.LeftIndex2] = 6,
-        [Key.LeftIndex3] = 7,
-        [Key.LeftIndex] = 8,
-        [Key.LeftMiddle1] = 9,
-        [Key.LeftMiddle2] = 10,
-        [Key.LeftMiddle3] = 11,
-        [Key.LeftMiddle] = 12,
-        [Key.LeftRing1] = 13,
-        [Key.LeftRing2] = 14,
-        [Key.LeftRing3] = 15,
-        [Key.LeftRing] = 16,
-        [Key.LeftPinky1] = 17,
-        [Key.LeftPinky2] = 18,
-        [Key.LeftPinky3] = 19,
-        [Key.LeftPinky] = 20,
+    Dictionary<BodyPoint, int> availablePoints = new Dictionary<BodyPoint, int>{
+        [BodyPoint.LeftWrist] = 0,
+        [BodyPoint.LeftThumb1] = 1,
+        [BodyPoint.LeftThumb2] = 2,
+        [BodyPoint.LeftThumb3] = 3,
+        [BodyPoint.LeftThumb] = 4,
+        [BodyPoint.LeftIndex1] = 5,
+        [BodyPoint.LeftIndex2] = 6,
+        [BodyPoint.LeftIndex3] = 7,
+        [BodyPoint.LeftIndex] = 8,
+        [BodyPoint.LeftMiddle1] = 9,
+        [BodyPoint.LeftMiddle2] = 10,
+        [BodyPoint.LeftMiddle3] = 11,
+        [BodyPoint.LeftMiddle] = 12,
+        [BodyPoint.LeftRing1] = 13,
+        [BodyPoint.LeftRing2] = 14,
+        [BodyPoint.LeftRing3] = 15,
+        [BodyPoint.LeftRing] = 16,
+        [BodyPoint.LeftPinky1] = 17,
+        [BodyPoint.LeftPinky2] = 18,
+        [BodyPoint.LeftPinky3] = 19,
+        [BodyPoint.LeftPinky] = 20,
     };
 
     void Start()
@@ -75,7 +75,7 @@ public class BodyPointsFromBaracuda : BodyPointsProvider
 
     void NewPoints() {
         handPoints = pipeline.HandPoints;
-        EmitBodyPointsUpdatedEvent();
+        RaiseBodyPointsChanged();
     }
 
     void OnDestroy() {
@@ -86,6 +86,6 @@ public class BodyPointsFromBaracuda : BodyPointsProvider
         kinect = null;
     }
 
-    public override Vector4 GetBodyPoint(Key key) => availablePoints.ContainsKey(key) ? handPoints[availablePoints[key]] : Vector4.zero;
-    public override Key[] AvailablePoints => availablePoints.Keys.ToArray();
+    public override Vector4 GetBodyPoint(BodyPoint key) => availablePoints.ContainsKey(key) ? handPoints[availablePoints[key]] : Vector4.zero;
+    public override BodyPoint[] AvailablePoints => availablePoints.Keys.ToArray();
 }

@@ -1,24 +1,24 @@
 using System.Collections.Generic;
 using UnityEngine;
-using Key = BodyPointsProvider.Key;
+using BodyPoint = BodyPointsProvider.BodyPoint;
 
 public class BodyPointsVisualizer : MonoBehaviour
 {
     [SerializeField]
     BodyPointsProvider bodyPointsProvider;
 
-    Dictionary<Key, Transform> nodes;
+    Dictionary<BodyPoint, Transform> nodes;
 
     void Start()
     {
         var node = transform.Find("Node");
-        nodes = new Dictionary<Key, Transform>();
+        nodes = new Dictionary<BodyPoint, Transform>();
         foreach (var k in bodyPointsProvider.AvailablePoints) {
             nodes[k] = Instantiate(node, transform);
             nodes[k].name = k.ToString();
         }
         node.GetComponent<Renderer>().enabled = false;
-        bodyPointsProvider.BodyPointsUpdatedEvent += NewPoints;
+        bodyPointsProvider.BodyPointsChanged += NewPoints;
     }
 
     private static Color trackingStateToColor(float ts) {
@@ -31,7 +31,7 @@ public class BodyPointsVisualizer : MonoBehaviour
     }
 
     void OnDestroy() {
-        bodyPointsProvider.BodyPointsUpdatedEvent -= NewPoints;
+        bodyPointsProvider.BodyPointsChanged -= NewPoints;
     }
 
     void NewPoints()
