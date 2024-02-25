@@ -1,6 +1,4 @@
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using Key = BodyPointsProvider.Key;
 
@@ -9,11 +7,6 @@ public class BodyPointsVisualizer : MonoBehaviour
     [SerializeField]
     BodyPointsProvider bodyPointsProvider;
 
-    // Transform head;
-    // Transform leftWrist;
-    // Transform rightWrist;
-    // Transform leftIndex;
-    // Transform rightIndex;
     Dictionary<Key, Transform> nodes;
 
     void Start()
@@ -25,11 +18,7 @@ public class BodyPointsVisualizer : MonoBehaviour
             nodes[k].name = k.ToString();
         }
         node.GetComponent<Renderer>().enabled = false;
-        // head = transform.Find("Head");
-        // leftWrist = transform.Find("Left Wrist");
-        // rightWrist = transform.Find("Right Wrist");
-        // leftIndex = transform.Find("Left Index");
-        // rightIndex = transform.Find("Right Index");
+        bodyPointsProvider.BodyPointsUpdatedEvent += NewPoints;
     }
 
     private static Color trackingStateToColor(float ts) {
@@ -41,24 +30,12 @@ public class BodyPointsVisualizer : MonoBehaviour
         };
     }
 
-    void Update()
+    void NewPoints()
     {
-        // var body = bodyPointsProvider.GetBodyPoints();
-        foreach (var k in bodyPointsProvider.AvailablePoints)
-        {
+        foreach (var (k, t) in nodes) {
             var v = bodyPointsProvider.GetBodyPoint(k);
-            nodes[k].position = v * 5f;
-            nodes[k].GetComponent<Renderer>().material.color = trackingStateToColor(v.w);
+            t.position = v * 5f;
+            t.GetComponent<Renderer>().material.color = trackingStateToColor(v.w);
         }
-        // head.position = body.head * 5f;
-        // head.GetComponent<Renderer>().material.color = trackingStateToColor(body.head.w);
-        // leftWrist.position = body.leftWrist * 5f;
-        // leftWrist.GetComponent<Renderer>().material.color = trackingStateToColor(body.leftWrist.w);
-        // rightWrist.position = body.rightWrist * 5f;
-        // rightWrist.GetComponent<Renderer>().material.color = trackingStateToColor(body.rightWrist.w);
-        // leftIndex.position = body.leftIndex * 5f;
-        // leftIndex.GetComponent<Renderer>().material.color = trackingStateToColor(body.leftIndex.w);
-        // rightIndex.position = body.rightIndex * 5f;
-        // rightIndex.GetComponent<Renderer>().material.color = trackingStateToColor(body.rightIndex.w);
     }
 }

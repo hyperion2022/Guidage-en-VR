@@ -41,10 +41,10 @@ public abstract class BodyPointsProvider: MonoBehaviour {
         RightThumb2,
         RightThumb3,
     }
-    public delegate void BodyPointsUpdated(BodyPointsProvider provider);
+    public delegate void BodyPointsUpdated();
     public event BodyPointsUpdated BodyPointsUpdatedEvent;
     public void EmitBodyPointsUpdatedEvent() {
-        BodyPointsUpdatedEvent?.Invoke(this);
+        BodyPointsUpdatedEvent?.Invoke();
     }
 
     public static string KeyToJson(Key key) => "\"" + key.ToString() + "\"";
