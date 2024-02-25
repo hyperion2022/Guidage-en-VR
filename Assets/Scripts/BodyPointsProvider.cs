@@ -12,6 +12,11 @@ public abstract class BodyPointsProvider: MonoBehaviour {
     // - 1 capted (the value is valid) GREEN
     // - 2 guessed BLUE
     // - 3 error (the value could not be computed) RED
+    public static bool IsAbsent(Vector4 v) => v.w == 0f;
+    public static bool IsTracked(Vector4 v) => v.w == 1f;
+    public static bool IsGuessed(Vector4 v) => v.w == 2f;
+    public static bool IsInvalid(Vector4 v) => v.w == 3f;
+
     public abstract Vector4 GetBodyPoint(Key key);
     public abstract Key[] AvailablePoints { get; }
 

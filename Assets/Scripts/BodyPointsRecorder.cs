@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
-using Body = System.Collections.Generic.Dictionary<BodyPointsProvider.Key, UnityEngine.Vector4>;
+using Newtonsoft.Json;
+using System.Linq;
+using static BodyPointsProvider;
 
 public class BodyPointsRecorder : MonoBehaviour
 {
@@ -9,46 +11,53 @@ public class BodyPointsRecorder : MonoBehaviour
     BodyPointsProvider bodyPointsProvider;
 
     [SerializeField] float capturesPerSecond = 15f;
-    [SerializeField] float waitBeforeStart = 1f;
     [SerializeField] string outputFilePath = "recorded-body-points.json";
 
-    private List<Body> recorded;
+    private bool waitCaptation;
+
+    private List<Vector4[]> recorded;
     public void Start()
     {
-        recorded = new List<Body>();
-        InvokeRepeating("CallBack", waitBeforeStart, 1f / capturesPerSecond);
+        waitCaptation = true;
+        recorded = new List<Vector4[]>();
+        InvokeRepeating("CallBack", 0f, 1f / capturesPerSecond);
+        // Debug.Log(JsonConvert.SerializeObject(recorded));
     }
 
     public void CallBack()
     {
-        var body = new Body();
-        foreach (var k in bodyPointsProvider.AvailablePoints)
+        var points = bodyPointsProvider.AvailablePoints.Select(bodyPointsProvider.GetBodyPoint).ToArray();
+        if (waitCaptation)
         {
-            body[k] = bodyPointsProvider.GetBodyPoint(k);
+            foreach (var point in points)
+            {
+                if (IsTracked(point)) waitCaptation = false;
+            }
         }
-        recorded.Add(body);
+        else
+        {
+            recorded.Add(points);
+        }
     }
 
     public void OnDestroy()
     {
-        File.WriteAllText(outputFilePath, Json.DictWriter
-            .Field("rate", capturesPerSecond.ToString())
-            .Field("available", Json.ListToJson(
-                bodyPointsProvider.AvailablePoints,
-                BodyPointsProvider.KeyToJson
-            ))
-            .Field("recs", Json.ListToJson(recorded, rec =>
-                Json.DictToJson(rec, BodyPointsProvider.KeyToJson, v => Json.AnyToJson(v))
-            ))
-            .ToJson()
-        );
+        if (recorded.Count > 0)
+        {
+            File.WriteAllText(outputFilePath, JsonConvert.SerializeObject(new Recorded
+            {
+                hertz = capturesPerSecond,
+                columns = bodyPointsProvider.AvailablePoints.Select(v => v.ToString()).ToArray(),
+                data = recorded.Select(v => v.Select(v => new float[] { v.x, v.y, v.z, v.w }).ToArray()).ToArray(),
+            }));
+        }
     }
 
-    // [System.Serializable]
-    // private struct Recorded
-    // {
-    //     public float rate;
-    //     public string[] available;
-    //     public Body[] recs;
-    // }
+    [System.Serializable]
+    private struct Recorded
+    {
+        public float hertz;
+        public string[] columns;
+        public float[][][] data;
+    }
 }
