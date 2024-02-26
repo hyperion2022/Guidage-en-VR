@@ -31,13 +31,14 @@ public class KinectHandle : MonoBehaviour
     {
         trackedBody = -1;
         kinect = KinectSensor.GetDefault();
-        if (EnableLogs)
-        {
-            kinect.IsAvailableChanged += (_, _) => Debug.Log("Kinect Handle: " + (kinect.IsAvailable ? "Available" : "Not Available"));
-        }
         if (!kinect.IsOpen)
         {
             kinect.Open();
+        }
+        if (EnableLogs)
+        {
+            Debug.Log("Kinect Handle: Waiting availability ...");
+            kinect.IsAvailableChanged += (_, _) => Debug.Log("Kinect Handle: " + (kinect.IsAvailable ? "Available" : "Not Available"));
         }
         bodyFrameReader = kinect.BodyFrameSource.OpenReader();
         colorFrameReader = kinect.ColorFrameSource.OpenReader();
@@ -67,14 +68,16 @@ public class KinectHandle : MonoBehaviour
             {
                 if (trackedBody >= 0)
                 {
-                    Debug.Log($"Kinect Handle: Received tracked body {trackedBody}");
+                    Debug.Log($"Kinect Handle: Tracking state SUCCESS");
                 }
                 else
                 {
-                    Debug.Log($"Kinect Handle: Failed to track body");
+                    Debug.Log($"Kinect Handle: Tracking state FAIL");
                 }
             }
-            BodiesChanged?.Invoke();
+            if (trackedBody >= 0) {
+                BodiesChanged?.Invoke();
+            }
         };
         colorFrameReader.FrameArrived += (_, arg) =>
         {
