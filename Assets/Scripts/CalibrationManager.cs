@@ -7,7 +7,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using static BodyPointsProvider;
 
-public class CalibrationManager : MonoBehaviour {
+public class CalibrationManager : MonoBehaviour
+{
     [SerializeField]
     BodyPointsProvider bodyPointsProvider;
     public GameObject[] corners;
@@ -40,7 +41,7 @@ public class CalibrationManager : MonoBehaviour {
         }
 
         bodyPoints = new BodyPoints[6];
-        bodyPoints = Enumerable.Repeat(new BodyPoints{ rightIndex = invalid, head = invalid }, 6).ToArray();
+        bodyPoints = Enumerable.Repeat(new BodyPoints { rightIndex = invalid, head = invalid }, 6).ToArray();
         screenPoints = new Vector3[3];
 
         counter = 0;
@@ -83,6 +84,11 @@ public class CalibrationManager : MonoBehaviour {
                 head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head),
             };
             bodyPoints[counter - 1] = points;
+
+            if (!IsTracked(points.head) || !IsTracked(points.rightIndex))
+            {
+                Debug.Log("Calibration Warning: The body is not properly tracked");
+            }
             DebugVisuals.AddSphere(points.head, 0.02f, Color.green, $"Head {counter}");
             DebugVisuals.AddSphere(points.rightIndex, 0.02f, Color.blue, $"Index {counter}");
             DebugVisuals.AddCylinder(points.head, points.rightIndex, 0.01f, Color.blue, $"Line {counter}");
