@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using static BodyPointsProvider;
 
-public class CalibrationManager : BodyPointsProvider {
+public class CalibrationManager : MonoBehaviour {
     [SerializeField]
     BodyPointsProvider bodyPointsProvider;
     public GameObject[] corners;
@@ -25,33 +25,6 @@ public class CalibrationManager : BodyPointsProvider {
     }
     private BodyPoints[] bodyPoints;
     private Vector3[] screenPoints;
-
-    static Dictionary<BodyPoint, (int, int)> pointMapper = new() {
-        [BodyPoint.LeftIndex1] = (0, 0),
-        [BodyPoint.LeftIndex2] = (0, 1),
-        [BodyPoint.LeftIndex3] = (1, 0),
-        [BodyPoint.LeftIndex] = (1, 1),
-        [BodyPoint.LeftMiddle1] = (2, 0),
-        [BodyPoint.LeftMiddle2] = (2, 1),
-        [BodyPoint.LeftMiddle3] = (3, 0),
-        [BodyPoint.LeftMiddle] = (3, 1),
-        [BodyPoint.LeftPinky1] = (4, 0),
-        [BodyPoint.LeftPinky2] = (4, 1),
-        [BodyPoint.LeftPinky3] = (5, 0),
-        [BodyPoint.LeftPinky] = (5, 1),
-        [BodyPoint.LeftRing] = (6, 0),
-        [BodyPoint.LeftRing1] = (6, 1),
-        [BodyPoint.LeftRing2] = (6, 2),
-    };
-    public override Vector4 GetBodyPoint(BodyPoint bodyPoint) {
-        if (pointMapper.ContainsKey(bodyPoint)) {
-            var (i, j) = pointMapper[bodyPoint];
-            if (i == 6) return screenPoints[j];
-            return j == 0 ? bodyPoints[i].rightIndex : bodyPoints[i].head;
-        }
-        return Vector4.zero;
-    }
-    public override BodyPoint[] AvailablePoints => pointMapper.Keys.ToArray();
 
     // Start is called before the first frame update
     void Start()
@@ -104,11 +77,16 @@ public class CalibrationManager : BodyPointsProvider {
         // we save 6 positions = 4 corners + 2 center directions
         if (counter >= 1 && counter <= 6)
         {
-            bodyPoints[counter - 1] = new BodyPoints
+            var points = new BodyPoints
             {
                 rightIndex = bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex),
                 head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head),
             };
+            bodyPoints[counter - 1] = points;
+            DebugVisuals.AddSphere(points.head, 0.02f, Color.green, $"Head {counter}");
+            DebugVisuals.AddSphere(points.rightIndex, 0.02f, Color.blue, $"Index {counter}");
+            DebugVisuals.AddCylinder(points.head, points.rightIndex, 0.01f, Color.blue, $"Line {counter}");
+            DebugVisuals.AddCylinderToward(points.head, points.rightIndex, 0.005f, Color.yellow, $"Line {counter}");
         }
 
         counter++;
@@ -161,7 +139,10 @@ public class CalibrationManager : BodyPointsProvider {
         Debug.Log(screenPoints[1]);
         Debug.Log(screenPoints[2]);
 
-        RaiseBodyPointsChanged();
+        DebugVisuals.AddSphere(cornerUL, 0.02f, Color.white, "Screen UL");
+        DebugVisuals.AddSphere(cornerUR, 0.02f, Color.white, "Screen UR");
+        DebugVisuals.AddSphere(cornerLR, 0.02f, Color.white, "Screen LR");
+        DebugVisuals.AddSphere(Vector3.zero, 0.02f, Color.cyan, "Kinect Camera");
     }
 
     // point at depth = z al    
