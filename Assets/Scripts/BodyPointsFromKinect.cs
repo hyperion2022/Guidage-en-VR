@@ -40,7 +40,10 @@ public class BodyPointsFromKinect : BodyPointsProvider
     public override Vector4 GetBodyPoint(BodyPoint key)
     {
         if (!availablePoints.ContainsKey(key)) return Vector4.zero;
-        foreach (var body in kinect.Bodies) return JointToVec4(body.Joints[availablePoints[key]]);
+        var body = kinect.TrackedBody;
+        if (body != null) {
+            return JointToVec4(body.Joints[availablePoints[key]]);
+        }
         return Vector4.zero;
     }
     public override BodyPoint[] AvailablePoints => availablePoints.Keys.ToArray();

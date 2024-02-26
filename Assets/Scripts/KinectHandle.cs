@@ -13,7 +13,7 @@ public class KinectHandle : MonoBehaviour
     [SerializeField] bool EnableLogs;
     public bool IsAvailable => kinect.IsAvailable;
     public Texture ColorTexture => colorTexture;
-    public IEnumerable<Body> Bodies => bodies.Take(bodyCount);
+    public Body TrackedBody => (trackedBody >= 0) ? bodies[trackedBody] : null;
 
     public event Action ColorTextureChanged;
     public event Action BodiesChanged;
@@ -25,10 +25,12 @@ public class KinectHandle : MonoBehaviour
     private ColorFrameReader colorFrameReader;
     private int bodyCount;
     private Body[] bodies;
+    private int trackedBody;
     private byte[] colorBytes;
     private Texture2D colorTexture;
     void Start()
     {
+        trackedBody = -1;
         kinect = KinectSensor.GetDefault();
         if (EnableLogs) {
             kinect.IsAvailableChanged += (_, _) => Debug.Log("Kinect Handle: " + (kinect.IsAvailable ? "Available" : "Not Available"));
@@ -54,8 +56,19 @@ public class KinectHandle : MonoBehaviour
             bodyCount = frame.BodyCount;
             frame.GetAndRefreshBodyData(bodies);
             frame.Dispose();
+            trackedBody = -1;
+            foreach (var i in Enumerable.Range(0, bodies.Length)) {
+                if (bodies[i].IsTracked) {
+                    trackedBody = i;
+                    break;
+                }
+            }
             if (EnableLogs) {
-                Debug.Log($"Kinect Handle: Received {bodyCount} bodies");
+                if (trackedBody >= 0) {
+                    Debug.Log($"Kinect Handle: Received tracked body {trackedBody}");
+                } else {
+                    Debug.Log($"Kinect Handle: Failed to track body");
+                }
             }
             BodiesChanged?.Invoke();
         };
