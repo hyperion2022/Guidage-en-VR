@@ -1,3 +1,4 @@
+using System.Linq;
 using MediaPipe.BlazePalm;
 using MediaPipe.HandLandmark;
 using UnityEngine;
@@ -7,7 +8,7 @@ namespace MediaPipe.HandPose
 {
     sealed class HandPipeline : System.IDisposable
     {
-        public Vector4[] HandPoints = new Vector4[KeyPointCount];
+        public Vector4[] HandPoints = Enumerable.Repeat(Vector4.zero, KeyPointCount).ToArray();
         public const int KeyPointCount = 21;
         // public enum KeyPoint {
         //     Wrist,

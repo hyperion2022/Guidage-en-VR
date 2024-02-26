@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Assertions;
 using Windows.Kinect;
@@ -7,46 +9,12 @@ using Vector4 = UnityEngine.Vector4;
 public class BodyPointsFromKinect : BodyPointsProvider
 {
     [SerializeField]
-    bool log = false;
-    private KinectSensor kinect;
-    private BodyFrameReader bodyReader;
-    private Body[] bodies;
+    KinectHandle kinect;
 
-    // private BodyPoints bodyPoints = new BodyPoints{};
-    // Start is called before the first frame update
     void Start()
     {
-        kinect = KinectSensor.GetDefault();
-        if (!kinect.IsOpen)
-        {
-            kinect.Open();
-        }
-        if (log)
-        {
-            Debug.Log("kinect sensor activated");
-        }
-        bodyReader = kinect.BodyFrameSource.OpenReader();
-        Assert.IsNotNull(bodyReader);
-        bodies = new Body[kinect.BodyFrameSource.BodyCount];
-        bodyReader.FrameArrived += HandleFrame;
-    }
-
-    void HandleFrame(object _, BodyFrameArrivedEventArgs arg)
-    {
-        var frame = arg.FrameReference.AcquireFrame();
-        Assert.IsNotNull(frame);
-        frame.GetAndRefreshBodyData(bodies);
-        // bodyPoints.head = JointToVec4(bodies[0].Joints[JointType.Head]);
-        // bodyPoints.leftWrist = JointToVec4(bodies[0].Joints[JointType.WristLeft]);
-        // bodyPoints.leftIndex = JointToVec4(bodies[0].Joints[JointType.HandTipLeft]);
-        // bodyPoints.rightWrist = JointToVec4(bodies[0].Joints[JointType.WristRight]);
-        // bodyPoints.rightIndex = JointToVec4(bodies[0].Joints[JointType.HandTipRight]);
-        frame.Dispose();
-        if (log) {
-            Debug.Log("detected head position " + JointToVec4(bodies[0].Joints[JointType.Head]).ToString());
-        }
-        // BodyPointsUpdated();
-        RaiseBodyPointsChanged();
+        Assert.IsNotNull(kinect);
+        kinect.BodiesChanged += RaiseBodyPointsChanged;
     }
 
     private static Vector4 JointToVec4(Joint joint)
@@ -61,27 +29,19 @@ public class BodyPointsFromKinect : BodyPointsProvider
         return new Vector4(joint.Position.X, joint.Position.Y, joint.Position.Z, w);
     }
 
-    void OnDestroy()
+    private static readonly Dictionary<BodyPoint, JointType> availablePoints = new()
     {
-        bodyReader.Dispose();
-        bodyReader = null;
-        kinect.Close();
-        kinect = null;
-    }
-
-    // public override BodyPoints GetBodyPoints() => bodyPoints;
+        [BodyPoint.Head] = JointType.Head,
+        [BodyPoint.LeftWrist] = JointType.WristLeft,
+        [BodyPoint.RightWrist] = JointType.WristRight,
+        [BodyPoint.LeftIndex] = JointType.HandTipLeft,
+        [BodyPoint.RightIndex] = JointType.HandTipRight,
+    };
     public override Vector4 GetBodyPoint(BodyPoint key)
     {
-        if (bodies[0] == null) return Vector4.zero;
-        return key switch
-        {
-            BodyPoint.Head => JointToVec4(bodies[0].Joints[JointType.Head]),
-            BodyPoint.LeftWrist => JointToVec4(bodies[0].Joints[JointType.WristLeft]),
-            BodyPoint.RightWrist => JointToVec4(bodies[0].Joints[JointType.WristRight]),
-            BodyPoint.LeftIndex => JointToVec4(bodies[0].Joints[JointType.HandTipLeft]),
-            BodyPoint.RightIndex => JointToVec4(bodies[0].Joints[JointType.HandTipRight]),
-            _ => Vector4.zero,
-        };
+        if (!availablePoints.ContainsKey(key)) return Vector4.zero;
+        foreach (var body in kinect.Bodies) return JointToVec4(body.Joints[availablePoints[key]]);
+        return Vector4.zero;
     }
-    public override BodyPoint[] AvailablePoints => new BodyPoint[] { BodyPoint.Head, BodyPoint.LeftWrist, BodyPoint.RightWrist, BodyPoint.LeftIndex, BodyPoint.RightIndex };
+    public override BodyPoint[] AvailablePoints => availablePoints.Keys.ToArray();
 }
