@@ -20,7 +20,7 @@ public class CalibrationManager : BodyPointsProvider {
 
     private struct BodyPoints
     {
-        public Vector4 rightWrist;
+        public Vector4 head;
         public Vector4 rightIndex;
     }
     private BodyPoints[] bodyPoints;
@@ -47,7 +47,7 @@ public class CalibrationManager : BodyPointsProvider {
         if (pointMapper.ContainsKey(bodyPoint)) {
             var (i, j) = pointMapper[bodyPoint];
             if (i == 6) return screenPoints[j];
-            return j == 0 ? bodyPoints[i].rightIndex : bodyPoints[i].rightWrist;
+            return j == 0 ? bodyPoints[i].rightIndex : bodyPoints[i].head;
         }
         return Vector4.zero;
     }
@@ -67,7 +67,7 @@ public class CalibrationManager : BodyPointsProvider {
         }
 
         bodyPoints = new BodyPoints[6];
-        bodyPoints = Enumerable.Repeat(new BodyPoints{ rightIndex = invalid, rightWrist = invalid }, 6).ToArray();
+        bodyPoints = Enumerable.Repeat(new BodyPoints{ rightIndex = invalid, head = invalid }, 6).ToArray();
         screenPoints = new Vector3[3];
 
         counter = 0;
@@ -77,10 +77,10 @@ public class CalibrationManager : BodyPointsProvider {
 
     private Vector2 Detection()
     {
-        var rightWrist = bodyPointsProvider.GetBodyPoint(BodyPoint.RightWrist);
-        var rightIndex = bodyPointsProvider.GetBodyPoint(BodyPoint.LeftIndex);
+        var head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
+        var rightIndex = bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
 
-        Vector3 pointOnScreen = pointAtZ(rightWrist, rightIndex, screenPoints[0].z);
+        Vector3 pointOnScreen = pointAtZ(head, rightIndex, screenPoints[0].z);
         float posX = (pointOnScreen.x - screenPoints[0].x) / (screenPoints[1].x - screenPoints[0].x);
         float posY = (pointOnScreen.y - screenPoints[0].y) / (screenPoints[2].y - screenPoints[0].y);
 
@@ -107,7 +107,7 @@ public class CalibrationManager : BodyPointsProvider {
             bodyPoints[counter - 1] = new BodyPoints
             {
                 rightIndex = bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex),
-                rightWrist = bodyPointsProvider.GetBodyPoint(BodyPoint.RightWrist),
+                head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head),
             };
         }
 
@@ -139,18 +139,18 @@ public class CalibrationManager : BodyPointsProvider {
 
         // prendre en compte la 4e valeur
         // factoriser les points choisis
-        Vector4 dirLeftCenter = bodyPoints[4].rightIndex - bodyPoints[4].rightWrist;
-        Vector4 dirRightCenter = bodyPoints[5].rightIndex - bodyPoints[5].rightWrist;
-        Vector3 p1 = new Vector3(bodyPoints[4].rightWrist.x, bodyPoints[4].rightWrist.y, bodyPoints[4].rightWrist.z);
-        Vector3 p2 = new Vector3(bodyPoints[5].rightWrist.x, bodyPoints[5].rightWrist.y, bodyPoints[5].rightWrist.z);
+        Vector4 dirLeftCenter = bodyPoints[4].rightIndex - bodyPoints[4].head;
+        Vector4 dirRightCenter = bodyPoints[5].rightIndex - bodyPoints[5].head;
+        Vector3 p1 = new Vector3(bodyPoints[4].head.x, bodyPoints[4].head.y, bodyPoints[4].head.z);
+        Vector3 p2 = new Vector3(bodyPoints[5].head.x, bodyPoints[5].head.y, bodyPoints[5].head.z);
         Vector3 A = new Vector3(dirLeftCenter.x, dirLeftCenter.y, dirLeftCenter.z);
         Vector3 B = new Vector3(dirRightCenter.x, dirRightCenter.y, dirRightCenter.z);
         Vector3 centerPoint = intersectionPoint(p1, p2, A, B);
 
         // 3 points forment un plan/rectangle, le 4e peut sortir de ce plan � cause d'impr�cisions de calcul
-        Vector3 cornerUL = pointAtZ(bodyPoints[0].rightWrist, bodyPoints[0].rightIndex, centerPoint.z);
-        Vector3 cornerUR = pointAtZ(bodyPoints[1].rightWrist, bodyPoints[1].rightIndex, centerPoint.z);
-        Vector3 cornerLR = pointAtZ(bodyPoints[2].rightWrist, bodyPoints[2].rightIndex, centerPoint.z);
+        Vector3 cornerUL = pointAtZ(bodyPoints[0].head, bodyPoints[0].rightIndex, centerPoint.z);
+        Vector3 cornerUR = pointAtZ(bodyPoints[1].head, bodyPoints[1].rightIndex, centerPoint.z);
+        Vector3 cornerLR = pointAtZ(bodyPoints[2].head, bodyPoints[2].rightIndex, centerPoint.z);
 
         // sortie: rectangle (3 points)
         screenPoints[0] = cornerUL;
