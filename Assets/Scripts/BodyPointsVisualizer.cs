@@ -38,7 +38,7 @@ public class BodyPointsVisualizer : MonoBehaviour
     {
         foreach (var (k, t) in nodes) {
             var v = bodyPointsProvider.GetBodyPoint(k);
-            t.localPosition = v * 5f;
+            t.localPosition = (Vector3)v * 5f;
             t.GetComponent<Renderer>().material.color = trackingStateToColor(v.w);
         }
     }
