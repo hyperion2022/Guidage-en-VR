@@ -134,21 +134,29 @@ public class CalibrationManager : MonoBehaviour
         // 3 points forment un plan/rectangle, le 4e peut sortir de ce plan � cause d'impr�cisions de calcul
         Vector3 cornerUL = pointAtZ(bodyPoints[0].head, bodyPoints[0].rightIndex, centerPoint.z);
         Vector3 cornerUR = pointAtZ(bodyPoints[1].head, bodyPoints[1].rightIndex, centerPoint.z);
-        Vector3 cornerLR = pointAtZ(bodyPoints[2].head, bodyPoints[2].rightIndex, centerPoint.z);
+        Vector3 cornerLL = pointAtZ(bodyPoints[2].head, bodyPoints[2].rightIndex, centerPoint.z);
 
         // sortie: rectangle (3 points)
         screenPoints[0] = cornerUL;
         screenPoints[1] = cornerUR;
-        screenPoints[2] = cornerLR;
+        screenPoints[2] = cornerLL;
 
         Debug.Log(screenPoints[0]);
         Debug.Log(screenPoints[1]);
         Debug.Log(screenPoints[2]);
 
+        DebugVisuals.AddSphere(centerPoint, 0.02f, Color.green, "Screen UL");
         DebugVisuals.AddSphere(cornerUL, 0.02f, Color.white, "Screen UL");
         DebugVisuals.AddSphere(cornerUR, 0.02f, Color.white, "Screen UR");
-        DebugVisuals.AddSphere(cornerLR, 0.02f, Color.white, "Screen LR");
+        DebugVisuals.AddSphere(cornerLL, 0.02f, Color.white, "Screen LL");
         DebugVisuals.AddSphere(Vector3.zero, 0.02f, Color.cyan, "Kinect Camera");
+
+        Vector3 cornerLR = cornerUL + (cornerUR - cornerUL) + (cornerLL - cornerUL);
+        DebugVisuals.AddSphere(cornerLR, 0.02f, Color.green, "Screen LR");
+        DebugVisuals.AddCylinder(cornerUL, cornerUR, 0.01f, Color.red, $"Line {counter}");
+        DebugVisuals.AddCylinder(cornerUR, cornerLR, 0.01f, Color.red, $"Line {counter}");
+        DebugVisuals.AddCylinder(cornerLR, cornerLL, 0.01f, Color.red, $"Line {counter}");
+        DebugVisuals.AddCylinder(cornerLL, cornerUL, 0.01f, Color.red, $"Line {counter}");
     }
 
     // point at depth = z al    
