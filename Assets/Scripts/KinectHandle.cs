@@ -70,16 +70,19 @@ public class KinectHandle : MonoBehaviour
             {
                 if (trackedBody >= 0)
                 {
-                    init = false;
-                    Debug.Log($"Kinect Handle: Tracking state SUCCESS");
+                    if (init) {
+                        Debug.Log($"Kinect Handle: Tracking state SUCCESS");
+                        init = false;
+                    }
                 }
                 else
                 {
                     if (init) {
-                        Debug.Log($"Kinect Handle: Tracking state SEARCH ...");
+                        Debug.Log($"Kinect Handle: Tracking state SEARCHING ...");
                     }
                     else {
                         Debug.Log($"Kinect Handle: Tracking state LOST");
+                        init = true;
                     }
                 }
             }

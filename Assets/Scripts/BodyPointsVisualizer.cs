@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using BodyPoint = BodyPointsProvider.BodyPoint;
 
@@ -7,22 +8,74 @@ public class BodyPointsVisualizer : MonoBehaviour
     [SerializeField]
     BodyPointsProvider bodyPointsProvider;
 
-    Dictionary<BodyPoint, GameObject> nodes;
+    (BodyPoint, GameObject)[] spheres;
+    (BodyPoint, BodyPoint, GameObject)[] cylinders;
 
-    Dictionary<BodyPoint, BodyPoint> bones = new()
-    {
-        [BodyPoint.Head] = BodyPoint.LeftWrist,
+    static readonly Dictionary<(BodyPoint p1, BodyPoint p2), float> bones = new(){
+        [(BodyPoint.LeftThumb1, BodyPoint.LeftThumb2)] = 0.03f,
+        [(BodyPoint.LeftThumb2, BodyPoint.LeftThumb3)] = 0.03f,
+        [(BodyPoint.LeftThumb3, BodyPoint.LeftThumb)] = 0.03f,
+        [(BodyPoint.LeftIndex1, BodyPoint.LeftIndex2)] = 0.03f,
+        [(BodyPoint.LeftIndex2, BodyPoint.LeftIndex3)] = 0.03f,
+        [(BodyPoint.LeftIndex3, BodyPoint.LeftIndex)] = 0.03f,
+        [(BodyPoint.LeftMiddle1, BodyPoint.LeftMiddle2)] = 0.03f,
+        [(BodyPoint.LeftMiddle2, BodyPoint.LeftMiddle3)] = 0.03f,
+        [(BodyPoint.LeftMiddle3, BodyPoint.LeftMiddle)] = 0.03f,
+        [(BodyPoint.LeftRing1, BodyPoint.LeftRing2)] = 0.03f,
+        [(BodyPoint.LeftRing2, BodyPoint.LeftRing3)] = 0.03f,
+        [(BodyPoint.LeftRing3, BodyPoint.LeftRing)] = 0.03f,
+        [(BodyPoint.LeftPinky1, BodyPoint.LeftPinky2)] = 0.03f,
+        [(BodyPoint.LeftPinky2, BodyPoint.LeftPinky3)] = 0.03f,
+        [(BodyPoint.LeftPinky3, BodyPoint.LeftPinky)] = 0.03f,
+        [(BodyPoint.LeftWrist, BodyPoint.LeftPinky1)] = 0.03f,
+        [(BodyPoint.LeftPinky1, BodyPoint.LeftRing1)] = 0.03f,
+        [(BodyPoint.LeftRing1, BodyPoint.LeftMiddle1)] = 0.03f,
+        [(BodyPoint.LeftMiddle1, BodyPoint.LeftIndex1)] = 0.03f,
+        [(BodyPoint.LeftIndex1, BodyPoint.LeftThumb1)] = 0.03f,
+        [(BodyPoint.LeftThumb1, BodyPoint.LeftWrist)] = 0.03f,
     };
+    static readonly Dictionary<BodyPoint, float> nodes = new(){
+        [BodyPoint.Head] = 0.08f,
+        [BodyPoint.LeftThumb] = 0.03f,
+        [BodyPoint.LeftThumb3] = 0.03f,
+        [BodyPoint.LeftThumb2] = 0.03f,
+        [BodyPoint.LeftThumb1] = 0.03f,
+        [BodyPoint.LeftIndex] = 0.03f,
+        [BodyPoint.LeftIndex3] = 0.03f,
+        [BodyPoint.LeftIndex2] = 0.03f,
+        [BodyPoint.LeftIndex1] = 0.03f,
+        [BodyPoint.LeftMiddle] = 0.03f,
+        [BodyPoint.LeftMiddle3] = 0.03f,
+        [BodyPoint.LeftMiddle2] = 0.03f,
+        [BodyPoint.LeftMiddle1] = 0.03f,
+        [BodyPoint.LeftRing] = 0.03f,
+        [BodyPoint.LeftRing3] = 0.03f,
+        [BodyPoint.LeftRing2] = 0.03f,
+        [BodyPoint.LeftRing1] = 0.03f,
+        [BodyPoint.LeftPinky] = 0.03f,
+        [BodyPoint.LeftPinky3] = 0.03f,
+        [BodyPoint.LeftPinky2] = 0.03f,
+        [BodyPoint.LeftPinky1] = 0.03f,
+    };
+
 
     void Start()
     {
-        // var node = transform.Find("Node");
-        nodes = new Dictionary<BodyPoint, GameObject>();
-        foreach (var k in bodyPointsProvider.AvailablePoints)
+        spheres = bodyPointsProvider.AvailablePoints.Select(k =>
+            (k, DebugVisuals.CreateSphere(transform, nodes.GetValueOrDefault(k, 0.05f), Color.white, k.ToString()))
+        ).ToArray();
+        var list = new List<(BodyPoint, BodyPoint, GameObject)>();
+        foreach (var (k, v) in bones)
         {
-            nodes[k] = DebugVisuals.CreateSphere(transform, 0.05f, Color.white, k.ToString());
+            if (
+                bodyPointsProvider.AvailablePoints.Contains(k.p1) &&
+                bodyPointsProvider.AvailablePoints.Contains(k.p2)
+            )
+            {
+                list.Add((k.p1, k.p2, DebugVisuals.CreateCylinder(transform, v, Color.white)));
+            }
         }
-        // node.GetComponent<Renderer>().enabled = false;
+        cylinders = list.ToArray();
         bodyPointsProvider.BodyPointsChanged += NewPoints;
     }
 
@@ -44,11 +97,18 @@ public class BodyPointsVisualizer : MonoBehaviour
 
     void NewPoints()
     {
-        foreach (var (k, go) in nodes)
+        foreach (var (k, go) in spheres)
         {
             var v = bodyPointsProvider.GetBodyPoint(k);
             DebugVisuals.SphereAt(go, v);
             go.GetComponent<Renderer>().material.color = trackingStateToColor(v.w);
+        }
+        foreach (var (k1, k2, go) in cylinders)
+        {
+            var v1 = bodyPointsProvider.GetBodyPoint(k1);
+            var v2 = bodyPointsProvider.GetBodyPoint(k2);
+            DebugVisuals.CylinderBetween(go, v1, v2);
+            go.GetComponent<Renderer>().material.color = trackingStateToColor(v1.w);
         }
     }
 }
