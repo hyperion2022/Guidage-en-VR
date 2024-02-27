@@ -11,7 +11,8 @@ public class BodyPointsFromBaracuda : BodyPointsProvider
     [SerializeField] ResourceSet resources = null;
     HandPipeline pipeline;
 
-    Dictionary<BodyPoint, int> availablePoints = new Dictionary<BodyPoint, int>{
+    Dictionary<BodyPoint, int> availablePoints = new Dictionary<BodyPoint, int>
+    {
         [BodyPoint.LeftWrist] = 0,
         [BodyPoint.LeftThumb1] = 1,
         [BodyPoint.LeftThumb2] = 2,
@@ -42,10 +43,20 @@ public class BodyPointsFromBaracuda : BodyPointsProvider
         pipeline.BodyPointsUpdatedEvent += RaiseBodyPointsChanged;
     }
 
-    void OnDestroy() {
+    void OnDestroy()
+    {
         pipeline.Dispose();
     }
 
-    public override Vector4 GetBodyPoint(BodyPoint key) => availablePoints.ContainsKey(key) ? pipeline.HandPoints[availablePoints[key]] : Vector4.zero;
+    public override Vector4 GetBodyPoint(BodyPoint key)
+    {
+        if (!availablePoints.ContainsKey(key))
+        {
+            return absent;
+        }
+        var v = pipeline.HandPoints[availablePoints[key]];
+        v.Scale(new(1f, -1f, 1f, 1f));
+        return v;
+    }
     public override BodyPoint[] AvailablePoints => availablePoints.Keys.ToArray();
 }

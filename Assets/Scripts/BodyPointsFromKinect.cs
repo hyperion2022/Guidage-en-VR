@@ -36,12 +36,15 @@ public class BodyPointsFromKinect : BodyPointsProvider
         [BodyPoint.RightWrist] = JointType.WristRight,
         [BodyPoint.LeftIndex] = JointType.HandTipLeft,
         [BodyPoint.RightIndex] = JointType.HandTipRight,
+        [BodyPoint.LeftThumb] = JointType.ThumbLeft,
+        [BodyPoint.RightThumb] = JointType.ThumbRight,
     };
     public override Vector4 GetBodyPoint(BodyPoint key)
     {
         if (!availablePoints.ContainsKey(key)) return Vector4.zero;
         var body = kinect.TrackedBody;
-        if (body != null) {
+        if (body != null)
+        {
             return JointToVec4(body.Joints[availablePoints[key]]);
         }
         return Vector4.zero;
