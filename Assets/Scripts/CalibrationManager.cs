@@ -5,12 +5,16 @@ using System.Linq;
 using UnityEditor.VersionControl;
 using UnityEngine;
 using UnityEngine.UI;
+using Newtonsoft.Json;
 using static BodyPointsProvider;
+using System.IO;
 
 public class CalibrationManager : MonoBehaviour
 {
     [SerializeField]
     BodyPointsProvider bodyPointsProvider;
+    [SerializeField]
+    GameObject detectionManager;
     public GameObject[] corners;
     public GameObject center;
     public Text instructionText;
@@ -40,6 +44,8 @@ public class CalibrationManager : MonoBehaviour
             corner.GetComponent<Image>().color = Color.red;
         }
 
+        detectionManager.SetActive(false);
+
         bodyPoints = new BodyPoints[6];
         bodyPoints = Enumerable.Repeat(new BodyPoints { rightIndex = invalid, head = invalid }, 6).ToArray();
         screenPoints = new Vector3[3];
@@ -47,19 +53,6 @@ public class CalibrationManager : MonoBehaviour
         counter = 0;
         message = "0. Stand up so that the Kinect can detect all your body and validate when you are ready.";
         instructionText.text = message;
-    }
-
-    private Vector2 Detection()
-    {
-        var head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
-        var rightIndex = bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
-
-        Vector3 pointOnScreen = pointAtZ(head, rightIndex, screenPoints[0].z);
-        float posX = (pointOnScreen.x - screenPoints[0].x) / (screenPoints[1].x - screenPoints[0].x);
-        float posY = (pointOnScreen.y - screenPoints[0].y) / (screenPoints[2].y - screenPoints[0].y);
-
-        // pos sur l'�cran entre 0 et 1
-        return new Vector2(posX, posY);
     }
 
     public void UpdateCorner()
@@ -112,7 +105,9 @@ public class CalibrationManager : MonoBehaviour
             case 5: message = "5. a) Point towards the center from your left side and validate it when you are ready."; break;
             case 6: message = "5. b) Point towards the center from your right side and validate it when you are ready."; break;
             case 7: message = "You have finished the calibration step! Validate again to exit."; break;
-            case 8: UI.SetActive(false); CornerCoordsFromBodyPoints(bodyPoints); break; // d�sactiver l'interface de calibration
+            case 8: UI.SetActive(false); // d�sactiver l'interface de calibration
+                    CornerCoordsFromBodyPoints(bodyPoints); File.WriteAllText("screenCorners.json", JsonConvert.SerializeObject(screenPoints.Select(v=>new float[] { v.x, v.y, v.z }).ToArray()));
+                    detectionManager.SetActive(true); break; 
             default: message = "Error!"; break;
         }
 
