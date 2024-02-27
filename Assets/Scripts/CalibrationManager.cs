@@ -8,6 +8,7 @@ using UnityEngine.UI;
 using Newtonsoft.Json;
 using static BodyPointsProvider;
 using System.IO;
+using UnityEngine.Assertions;
 
 public class CalibrationManager : MonoBehaviour
 {
@@ -23,17 +24,14 @@ public class CalibrationManager : MonoBehaviour
 
     private string message;
 
-    private struct BodyPoints
-    {
-        public Vector4 head;
-        public Vector4 rightIndex;
-    }
-    private BodyPoints[] bodyPoints;
+    private (Vector3 head, Vector3 index)[] bodyPoints;
     private Vector3[] screenPoints;
+    private (int i, Vector4 head, Vector4 index) cumulated;
 
     // Start is called before the first frame update
     void Start()
     {
+        cumulated = (0, Vector4.zero, Vector4.zero);
         if (corners.Length != 4)
         {
             Debug.Log("Error: Only 4 corners allowed!");
@@ -46,8 +44,7 @@ public class CalibrationManager : MonoBehaviour
 
         detectionManager.SetActive(false);
 
-        bodyPoints = new BodyPoints[6];
-        bodyPoints = Enumerable.Repeat(new BodyPoints { rightIndex = invalid, head = invalid }, 6).ToArray();
+        bodyPoints = Enumerable.Repeat((Vector3.zero, Vector3.zero), 6).ToArray();
         screenPoints = new Vector3[3];
 
         counter = 0;
@@ -55,8 +52,73 @@ public class CalibrationManager : MonoBehaviour
         instructionText.text = message;
     }
 
+    public void CumulatePoints()
+    {
+        Debug.Log($"Cumulated: at {cumulated.i}");
+        // gather new points
+        var head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
+        var index = bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
+        // ignore if not properly tracked
+        if (!IsTracked(head)) return;
+        if (!IsTracked(index)) return;
+        // cumulate it
+        cumulated.i += 1;
+        cumulated.head += head;
+        cumulated.index += index;
+        
+        // if all points cumulated
+        if (cumulated.i == 10)
+        {
+            // stop accumulation
+            bodyPointsProvider.BodyPointsChanged -= CumulatePoints;
+            // scale down accumulated value
+            cumulated.head /= 10f;
+            cumulated.index /= 10f;
+            // set point state to TRACKED (w = 1)
+            cumulated.head.w = 1f;
+            cumulated.index.w = 1f;
+
+            Debug.Log($"Cumulated: distance {Vector3.Distance(cumulated.head, cumulated.index)}");
+            // now update corner
+            UpdateCorner();
+            // but remember to reset
+            cumulated.i = 0;
+            cumulated.head = Vector4.zero;
+            cumulated.index = Vector4.zero;
+        }
+    }
     public void UpdateCorner()
     {
+        // we save 6 positions = 4 corners + 2 center directions
+        if (counter >= 1 && counter <= 6)
+        {
+            // if point should be cumulated
+            if (cumulated.i == 0)
+            {
+                // start listenning for new body points
+                bodyPointsProvider.BodyPointsChanged += CumulatePoints;
+                // just quit because we are not ready to update corner
+                return;
+            }
+            // else, the cumulated points are ready to be used
+
+            var points = (head: cumulated.head, index: cumulated.index);
+            bodyPoints[counter - 1] = points;
+
+            if (!IsTracked(points.head) || !IsTracked(points.index))
+            {
+                Debug.Log("Calibration Warning: The body is not properly tracked");
+            }
+            GameObject go;
+            go = DebugVisuals.CreateSphere(transform, 0.02f, Color.green, $"Head {counter}");
+            DebugVisuals.SphereAt(go, points.head);
+            go = DebugVisuals.CreateSphere(transform, 0.02f, Color.blue, $"Index {counter}");
+            DebugVisuals.SphereAt(go, points.index);
+            go = DebugVisuals.CreateCylinder(transform, 0.01f, Color.blue, $"Line {counter}");
+            DebugVisuals.CylinderBetween(go, points.head, points.index);
+            go = DebugVisuals.CreateCylinder(transform, 0.005f, Color.yellow, $"Line {counter}");
+            DebugVisuals.CylinderToward(go, points.head, points.index);
+        }
         // if we validate one of the 4 corners
         if (counter > 0 && counter <= 4)
         {
@@ -67,30 +129,6 @@ public class CalibrationManager : MonoBehaviour
         {
             center.GetComponent<Image>().color = Color.green;
             // // bodyPointsProvider.BodyPointsChanged += () => Debug.Log(Detection().ToString());
-        }
-        // we save 6 positions = 4 corners + 2 center directions
-        if (counter >= 1 && counter <= 6)
-        {
-            var points = new BodyPoints
-            {
-                rightIndex = bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex),
-                head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head),
-            };
-            bodyPoints[counter - 1] = points;
-
-            if (!IsTracked(points.head) || !IsTracked(points.rightIndex))
-            {
-                Debug.Log("Calibration Warning: The body is not properly tracked");
-            }
-            GameObject go;
-            go = DebugVisuals.CreateSphere(transform, 0.02f, Color.green, $"Head {counter}");
-            DebugVisuals.SphereAt(go, points.head);
-            go = DebugVisuals.CreateSphere(transform, 0.02f, Color.blue, $"Index {counter}");
-            DebugVisuals.SphereAt(go, points.rightIndex);
-            go = DebugVisuals.CreateCylinder(transform, 0.01f, Color.blue, $"Line {counter}");
-            DebugVisuals.CylinderBetween(go, points.head, points.rightIndex);
-            go = DebugVisuals.CreateCylinder(transform, 0.005f, Color.yellow, $"Line {counter}");
-            DebugVisuals.CylinderToward(go, points.head, points.rightIndex);
         }
 
         counter++;
@@ -105,16 +143,23 @@ public class CalibrationManager : MonoBehaviour
             case 5: message = "5. a) Point towards the center from your left side and validate it when you are ready."; break;
             case 6: message = "5. b) Point towards the center from your right side and validate it when you are ready."; break;
             case 7: message = "You have finished the calibration step! Validate again to exit."; break;
-            case 8: UI.SetActive(false); // d�sactiver l'interface de calibration
-                    CornerCoordsFromBodyPoints(bodyPoints); File.WriteAllText("screenCorners.json", JsonConvert.SerializeObject(screenPoints.Select(v=>new float[] { v.x, v.y, v.z }).ToArray()));
-                    detectionManager.SetActive(true); break; 
+            case 8:
+                {
+                    UI.SetActive(false); // d�sactiver l'interface de calibration
+                    CornerCoordsFromBodyPoints(bodyPoints);
+                    File.WriteAllText("screenCorners.json", JsonConvert.SerializeObject(
+                        screenPoints.Select(v => new float[] { v.x, v.y, v.z }).ToArray())
+                    );
+                    detectionManager.SetActive(true);
+                }
+                break;
             default: message = "Error!"; break;
         }
 
         instructionText.text = message;
     }
 
-    private void CornerCoordsFromBodyPoints(BodyPoints[] bodyPoints)
+    private void CornerCoordsFromBodyPoints((Vector3 head, Vector3 index)[] bodyPoints)
     {
         if (bodyPoints.Length != 6)
         {
@@ -123,8 +168,8 @@ public class CalibrationManager : MonoBehaviour
 
         // prendre en compte la 4e valeur
         // factoriser les points choisis
-        Vector4 dirLeftCenter = bodyPoints[4].rightIndex - bodyPoints[4].head;
-        Vector4 dirRightCenter = bodyPoints[5].rightIndex - bodyPoints[5].head;
+        Vector4 dirLeftCenter = bodyPoints[4].index - bodyPoints[4].head;
+        Vector4 dirRightCenter = bodyPoints[5].index - bodyPoints[5].head;
         Vector3 p1 = new Vector3(bodyPoints[4].head.x, bodyPoints[4].head.y, bodyPoints[4].head.z);
         Vector3 p2 = new Vector3(bodyPoints[5].head.x, bodyPoints[5].head.y, bodyPoints[5].head.z);
         Vector3 A = new Vector3(dirLeftCenter.x, dirLeftCenter.y, dirLeftCenter.z);
@@ -132,9 +177,9 @@ public class CalibrationManager : MonoBehaviour
         Vector3 centerPoint = intersectionPoint(p1, p2, A, B);
 
         // 3 points forment un plan/rectangle, le 4e peut sortir de ce plan � cause d'impr�cisions de calcul
-        Vector3 cornerUL = pointAtZ(bodyPoints[0].head, bodyPoints[0].rightIndex, centerPoint.z);
-        Vector3 cornerUR = pointAtZ(bodyPoints[1].head, bodyPoints[1].rightIndex, centerPoint.z);
-        Vector3 cornerLL = pointAtZ(bodyPoints[2].head, bodyPoints[2].rightIndex, centerPoint.z);
+        Vector3 cornerUL = pointAtZ(bodyPoints[0].head, bodyPoints[0].index, centerPoint.z);
+        Vector3 cornerUR = pointAtZ(bodyPoints[1].head, bodyPoints[1].index, centerPoint.z);
+        Vector3 cornerLL = pointAtZ(bodyPoints[2].head, bodyPoints[2].index, centerPoint.z);
         Vector3 cornerLR = cornerUL + (cornerUR - cornerUL) + (cornerLL - cornerUL);
 
         // sortie: rectangle (3 points)

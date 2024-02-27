@@ -27,6 +27,8 @@ public class KinectHandle : MonoBehaviour
     private int trackedBody;
     private byte[] colorBytes;
     private Texture2D colorTexture;
+
+    private bool init = true;
     void Start()
     {
         trackedBody = -1;
@@ -68,11 +70,17 @@ public class KinectHandle : MonoBehaviour
             {
                 if (trackedBody >= 0)
                 {
+                    init = false;
                     Debug.Log($"Kinect Handle: Tracking state SUCCESS");
                 }
                 else
                 {
-                    Debug.Log($"Kinect Handle: Tracking state FAIL");
+                    if (init) {
+                        Debug.Log($"Kinect Handle: Tracking state SEARCH ...");
+                    }
+                    else {
+                        Debug.Log($"Kinect Handle: Tracking state LOST");
+                    }
                 }
             }
             if (trackedBody >= 0) {
