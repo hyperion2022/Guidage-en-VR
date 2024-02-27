@@ -20,7 +20,7 @@ public class BodyPointsVisualizer : MonoBehaviour
         nodes = new Dictionary<BodyPoint, GameObject>();
         foreach (var k in bodyPointsProvider.AvailablePoints)
         {
-            nodes[k] = DebugVisuals.CreateSphere(0.5f, Color.white, k.ToString());
+            nodes[k] = DebugVisuals.CreateSphere(transform, 0.05f, Color.white, k.ToString());
         }
         // node.GetComponent<Renderer>().enabled = false;
         bodyPointsProvider.BodyPointsChanged += NewPoints;
@@ -47,7 +47,7 @@ public class BodyPointsVisualizer : MonoBehaviour
         foreach (var (k, go) in nodes)
         {
             var v = bodyPointsProvider.GetBodyPoint(k);
-            DebugVisuals.SphereAt(go, (Vector3)v * 5f);
+            DebugVisuals.SphereAt(go, v);
             go.GetComponent<Renderer>().material.color = trackingStateToColor(v.w);
         }
     }

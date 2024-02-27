@@ -90,13 +90,13 @@ public class CalibrationManager : MonoBehaviour
                 Debug.Log("Calibration Warning: The body is not properly tracked");
             }
             GameObject go;
-            go = DebugVisuals.CreateSphere(0.02f, Color.green, $"Head {counter}");
+            go = DebugVisuals.CreateSphere(transform, 0.02f, Color.green, $"Head {counter}");
             DebugVisuals.SphereAt(go, points.head);
-            go = DebugVisuals.CreateSphere(0.02f, Color.blue, $"Index {counter}");
+            go = DebugVisuals.CreateSphere(transform, 0.02f, Color.blue, $"Index {counter}");
             DebugVisuals.SphereAt(go, points.rightIndex);
-            go = DebugVisuals.CreateCylinder(0.01f, Color.blue, $"Line {counter}");
+            go = DebugVisuals.CreateCylinder(transform, 0.01f, Color.blue, $"Line {counter}");
             DebugVisuals.CylinderBetween(go, points.head, points.rightIndex);
-            go = DebugVisuals.CreateCylinder(0.005f, Color.yellow, $"Line {counter}");
+            go = DebugVisuals.CreateCylinder(transform, 0.005f, Color.yellow, $"Line {counter}");
             DebugVisuals.CylinderToward(go, points.head, points.rightIndex);
         }
 
@@ -152,26 +152,26 @@ public class CalibrationManager : MonoBehaviour
         Debug.Log(screenPoints[2]);
 
         GameObject go;
-        go = DebugVisuals.CreateSphere(0.02f, Color.green, "Screen UL");
+        go = DebugVisuals.CreateSphere(transform, 0.02f, Color.green, "Screen UL");
         DebugVisuals.SphereAt(go, centerPoint);
-        go = DebugVisuals.CreateSphere(0.02f, Color.white, "Screen UL");
+        go = DebugVisuals.CreateSphere(transform, 0.02f, Color.white, "Screen UL");
         DebugVisuals.SphereAt(go, cornerUL);
-        go = DebugVisuals.CreateSphere(0.02f, Color.white, "Screen UR");
+        go = DebugVisuals.CreateSphere(transform, 0.02f, Color.white, "Screen UR");
         DebugVisuals.SphereAt(go, cornerUR);
-        go = DebugVisuals.CreateSphere(0.02f, Color.white, "Screen LL");
+        go = DebugVisuals.CreateSphere(transform, 0.02f, Color.white, "Screen LL");
         DebugVisuals.SphereAt(go, cornerLL);
-        go = DebugVisuals.CreateSphere(0.02f, Color.cyan, "Kinect Camera");
+        go = DebugVisuals.CreateSphere(transform, 0.02f, Color.cyan, "Kinect Camera");
         DebugVisuals.SphereAt(go, Vector3.zero);
-        go = DebugVisuals.CreateSphere(0.02f, Color.green, "Screen LR");
+        go = DebugVisuals.CreateSphere(transform, 0.02f, Color.green, "Screen LR");
         DebugVisuals.SphereAt(go, cornerLR);
 
-        go = DebugVisuals.CreateCylinder(0.01f, Color.red, $"Line {counter}");
+        go = DebugVisuals.CreateCylinder(transform, 0.01f, Color.red, $"Line {counter}");
         DebugVisuals.CylinderBetween(go, cornerUL, cornerUR);
-        go = DebugVisuals.CreateCylinder(0.01f, Color.red, $"Line {counter}");
+        go = DebugVisuals.CreateCylinder(transform, 0.01f, Color.red, $"Line {counter}");
         DebugVisuals.CylinderBetween(go, cornerUR, cornerLR);
-        go = DebugVisuals.CreateCylinder(0.01f, Color.red, $"Line {counter}");
+        go = DebugVisuals.CreateCylinder(transform, 0.01f, Color.red, $"Line {counter}");
         DebugVisuals.CylinderBetween(go, cornerLR, cornerLL);
-        go = DebugVisuals.CreateCylinder(0.01f, Color.red, $"Line {counter}");
+        go = DebugVisuals.CreateCylinder(transform, 0.01f, Color.red, $"Line {counter}");
         DebugVisuals.CylinderBetween(go, cornerLL, cornerUL);
     }
 
