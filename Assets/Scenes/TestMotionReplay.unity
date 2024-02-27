@@ -149,7 +149,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2655259009985357376, guid: 1fb9d5aa6cc43e3489fa922c180518a9, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -5
+      value: -4
       objectReference: {fileID: 0}
     - target: {fileID: 2655259009985357376, guid: 1fb9d5aa6cc43e3489fa922c180518a9, type: 3}
       propertyPath: m_LocalRotation.w
@@ -243,7 +243,7 @@ Camera:
     height: 1
   near clip plane: 0.3
   far clip plane: 1000
-  field of view: 60
+  field of view: 27.02
   orthographic: 0
   orthographic size: 5
   m_Depth: -1
@@ -270,7 +270,7 @@ Transform:
   m_GameObject: {fileID: 216275320}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: -6.25}
+  m_LocalPosition: {x: 0, y: 0, z: -6.25}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -287,6 +287,10 @@ PrefabInstance:
     - target: {fileID: 5416321791508760038, guid: c2f9f459dea089a4ba0f24c04ed10723, type: 3}
       propertyPath: m_Name
       value: BodyPointsFromKinect
+      objectReference: {fileID: 0}
+    - target: {fileID: 5416321791508760038, guid: c2f9f459dea089a4ba0f24c04ed10723, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7140384736575927357, guid: c2f9f459dea089a4ba0f24c04ed10723, type: 3}
       propertyPath: kinect
@@ -352,6 +356,10 @@ PrefabInstance:
     - target: {fileID: 1981102805348971010, guid: 1fb9d5aa6cc43e3489fa922c180518a9, type: 3}
       propertyPath: m_Name
       value: BodyPointsVisualizerKinect
+      objectReference: {fileID: 0}
+    - target: {fileID: 1981102805348971010, guid: 1fb9d5aa6cc43e3489fa922c180518a9, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2655259009985357376, guid: 1fb9d5aa6cc43e3489fa922c180518a9, type: 3}
       propertyPath: m_LocalPosition.x
@@ -565,17 +573,21 @@ PrefabInstance:
       propertyPath: m_Name
       value: KinectHandTrackingView
       objectReference: {fileID: 0}
+    - target: {fileID: 228034957240623985, guid: 12bb98b44881b0241b2a910a00379762, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 2196820340887408114, guid: 12bb98b44881b0241b2a910a00379762, type: 3}
       propertyPath: m_LocalScale.x
-      value: 17.39
+      value: 17.38
       objectReference: {fileID: 0}
     - target: {fileID: 2196820340887408114, guid: 12bb98b44881b0241b2a910a00379762, type: 3}
       propertyPath: m_LocalScale.y
-      value: -10.392429
+      value: -10.386454
       objectReference: {fileID: 0}
     - target: {fileID: 2196820340887408114, guid: 12bb98b44881b0241b2a910a00379762, type: 3}
       propertyPath: m_LocalScale.z
-      value: 3.4641433
+      value: 3.4621513
       objectReference: {fileID: 0}
     - target: {fileID: 2196820340887408114, guid: 12bb98b44881b0241b2a910a00379762, type: 3}
       propertyPath: m_LocalPosition.x
