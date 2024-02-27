@@ -54,7 +54,6 @@ public class CalibrationManager : MonoBehaviour
 
     public void CumulatePoints()
     {
-        Debug.Log($"Cumulated: at {cumulated.i}");
         // gather new points
         var head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
         var index = bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
@@ -78,7 +77,6 @@ public class CalibrationManager : MonoBehaviour
             cumulated.head.w = 1f;
             cumulated.index.w = 1f;
 
-            Debug.Log($"Cumulated: distance {Vector3.Distance(cumulated.head, cumulated.index)}");
             // now update corner
             UpdateCorner();
             // but remember to reset
