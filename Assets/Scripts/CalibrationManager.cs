@@ -89,10 +89,15 @@ public class CalibrationManager : MonoBehaviour
             {
                 Debug.Log("Calibration Warning: The body is not properly tracked");
             }
-            DebugVisuals.AddSphere(points.head, 0.02f, Color.green, $"Head {counter}");
-            DebugVisuals.AddSphere(points.rightIndex, 0.02f, Color.blue, $"Index {counter}");
-            DebugVisuals.AddCylinder(points.head, points.rightIndex, 0.01f, Color.blue, $"Line {counter}");
-            DebugVisuals.AddCylinderToward(points.head, points.rightIndex, 0.005f, Color.yellow, $"Line {counter}");
+            GameObject go;
+            go = DebugVisuals.CreateSphere(0.02f, Color.green, $"Head {counter}");
+            DebugVisuals.SphereAt(go, points.head);
+            go = DebugVisuals.CreateSphere(0.02f, Color.blue, $"Index {counter}");
+            DebugVisuals.SphereAt(go, points.rightIndex);
+            go = DebugVisuals.CreateCylinder(0.01f, Color.blue, $"Line {counter}");
+            DebugVisuals.CylinderBetween(go, points.head, points.rightIndex);
+            go = DebugVisuals.CreateCylinder(0.005f, Color.yellow, $"Line {counter}");
+            DebugVisuals.CylinderToward(go, points.head, points.rightIndex);
         }
 
         counter++;
@@ -135,6 +140,7 @@ public class CalibrationManager : MonoBehaviour
         Vector3 cornerUL = pointAtZ(bodyPoints[0].head, bodyPoints[0].rightIndex, centerPoint.z);
         Vector3 cornerUR = pointAtZ(bodyPoints[1].head, bodyPoints[1].rightIndex, centerPoint.z);
         Vector3 cornerLL = pointAtZ(bodyPoints[2].head, bodyPoints[2].rightIndex, centerPoint.z);
+        Vector3 cornerLR = cornerUL + (cornerUR - cornerUL) + (cornerLL - cornerUL);
 
         // sortie: rectangle (3 points)
         screenPoints[0] = cornerUL;
@@ -145,18 +151,28 @@ public class CalibrationManager : MonoBehaviour
         Debug.Log(screenPoints[1]);
         Debug.Log(screenPoints[2]);
 
-        DebugVisuals.AddSphere(centerPoint, 0.02f, Color.green, "Screen UL");
-        DebugVisuals.AddSphere(cornerUL, 0.02f, Color.white, "Screen UL");
-        DebugVisuals.AddSphere(cornerUR, 0.02f, Color.white, "Screen UR");
-        DebugVisuals.AddSphere(cornerLL, 0.02f, Color.white, "Screen LL");
-        DebugVisuals.AddSphere(Vector3.zero, 0.02f, Color.cyan, "Kinect Camera");
+        GameObject go;
+        go = DebugVisuals.CreateSphere(0.02f, Color.green, "Screen UL");
+        DebugVisuals.SphereAt(go, centerPoint);
+        go = DebugVisuals.CreateSphere(0.02f, Color.white, "Screen UL");
+        DebugVisuals.SphereAt(go, cornerUL);
+        go = DebugVisuals.CreateSphere(0.02f, Color.white, "Screen UR");
+        DebugVisuals.SphereAt(go, cornerUR);
+        go = DebugVisuals.CreateSphere(0.02f, Color.white, "Screen LL");
+        DebugVisuals.SphereAt(go, cornerLL);
+        go = DebugVisuals.CreateSphere(0.02f, Color.cyan, "Kinect Camera");
+        DebugVisuals.SphereAt(go, Vector3.zero);
+        go = DebugVisuals.CreateSphere(0.02f, Color.green, "Screen LR");
+        DebugVisuals.SphereAt(go, cornerLR);
 
-        Vector3 cornerLR = cornerUL + (cornerUR - cornerUL) + (cornerLL - cornerUL);
-        DebugVisuals.AddSphere(cornerLR, 0.02f, Color.green, "Screen LR");
-        DebugVisuals.AddCylinder(cornerUL, cornerUR, 0.01f, Color.red, $"Line {counter}");
-        DebugVisuals.AddCylinder(cornerUR, cornerLR, 0.01f, Color.red, $"Line {counter}");
-        DebugVisuals.AddCylinder(cornerLR, cornerLL, 0.01f, Color.red, $"Line {counter}");
-        DebugVisuals.AddCylinder(cornerLL, cornerUL, 0.01f, Color.red, $"Line {counter}");
+        go = DebugVisuals.CreateCylinder(0.01f, Color.red, $"Line {counter}");
+        DebugVisuals.CylinderBetween(go, cornerUL, cornerUR);
+        go = DebugVisuals.CreateCylinder(0.01f, Color.red, $"Line {counter}");
+        DebugVisuals.CylinderBetween(go, cornerUR, cornerLR);
+        go = DebugVisuals.CreateCylinder(0.01f, Color.red, $"Line {counter}");
+        DebugVisuals.CylinderBetween(go, cornerLR, cornerLL);
+        go = DebugVisuals.CreateCylinder(0.01f, Color.red, $"Line {counter}");
+        DebugVisuals.CylinderBetween(go, cornerLL, cornerUL);
     }
 
     // point at depth = z al    
