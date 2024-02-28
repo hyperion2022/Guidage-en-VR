@@ -11,6 +11,7 @@ using Windows.Kinect;
 public class KinectHandle : MonoBehaviour
 {
     [SerializeField] bool EnableLogs;
+    [SerializeField] ComputeShader flipTexture;
     public bool IsAvailable => kinect.IsAvailable;
     public Texture ColorTexture => colorTexture;
     public Body TrackedBody => (trackedBody >= 0) ? bodies[trackedBody] : null;
@@ -104,6 +105,15 @@ public class KinectHandle : MonoBehaviour
             ColorTextureChanged?.Invoke();
         };
         kinect.IsAvailableChanged += (_, arg) => IsAvailableChanged?.Invoke();
+    }
+
+    public void FlippedColorTexture(RenderTexture destination) {
+        Assert.IsTrue(colorTexture.width == destination.width);
+        Assert.IsTrue(colorTexture.height == destination.height);
+        flipTexture.SetInt("height", destination.height);
+        flipTexture.SetTexture(0, "input", colorTexture);
+        flipTexture.SetTexture(0, "output", destination);
+        flipTexture.Dispatch(0, colorTexture.width / 8, colorTexture.height / 8, 1);
     }
 
     void OnDestroy()

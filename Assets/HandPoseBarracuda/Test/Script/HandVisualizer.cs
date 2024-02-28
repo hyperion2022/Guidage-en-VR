@@ -7,7 +7,8 @@ public sealed class HandVisualizer : MonoBehaviour
 {
     #region Editable attributes
 
-    [SerializeField] ImageSource _source = null;
+    // [SerializeField] ImageSource _source = null;
+    [SerializeField] KinectHandle kinect;
     [Space]
     [SerializeField] ResourceSet _resources = null;
     [SerializeField] Shader _keyPointShader = null;
@@ -22,6 +23,7 @@ public sealed class HandVisualizer : MonoBehaviour
 
     HandPipeline _pipeline;
     (Material keys, Material region) _material;
+    RenderTexture texture;
 
     #endregion
 
@@ -29,6 +31,7 @@ public sealed class HandVisualizer : MonoBehaviour
 
     void Start()
     {
+        texture = new RenderTexture(1920, 1080, 0) {enableRandomWrite = true};
         _pipeline = new HandPipeline(_resources);
         _material = (new Material(_keyPointShader),
                      new Material(_handRegionShader));
@@ -39,6 +42,15 @@ public sealed class HandVisualizer : MonoBehaviour
 
         // UI setup
         _cropUI.material = _material.region;
+
+        kinect.ColorTextureChanged += () => {
+            kinect.FlippedColorTexture(texture);
+            _pipeline.ProcessImage(texture);
+
+            // UI update
+            _mainUI.texture = texture;
+            _cropUI.texture = texture;
+        };
     }
 
     void OnDestroy()
@@ -48,15 +60,15 @@ public sealed class HandVisualizer : MonoBehaviour
         Destroy(_material.region);
     }
 
-    void LateUpdate()
-    {
-        // Feed the input image to the Hand pose pipeline.
-        _pipeline.ProcessImage(_source.Texture);
+    // void LateUpdate()
+    // {
+    //     // Feed the input image to the Hand pose pipeline.
+    //     _pipeline.ProcessImage(_source.Texture);
 
-        // UI update
-        _mainUI.texture = _source.Texture;
-        _cropUI.texture = _source.Texture;
-    }
+    //     // UI update
+    //     _mainUI.texture = _source.Texture;
+    //     _cropUI.texture = _source.Texture;
+    // }
 
     void OnRenderObject()
     {

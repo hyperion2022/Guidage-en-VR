@@ -12,5 +12,5 @@ void main (uint3 id : SV_DispatchThreadID)
     x = id.x / 224.0 * box.z + box.x;
     y = id.y / 224.0 * box.w + box.y;
     float4 rgba = tex2Dgrad(input, float2(x, y), 0.0, 0.0);
-    result[id.xy] = float4(rgba.r, rgba.g, rgba.b, 1.0);
+    result[float2(id.x, 224-id.y)] = float4(rgba.r, rgba.g, rgba.b, 1.0);
 }

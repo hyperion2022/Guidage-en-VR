@@ -1,0 +1,13 @@
+#pragma kernel main
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+Texture2D<float4> input;
+RWTexture2D<float4> output;
+uint height;
+
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    output[id.xy] = input[uint2(id.x, height - 1 - id.y)];
+}
