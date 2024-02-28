@@ -49,7 +49,10 @@ public class KinectHandle : MonoBehaviour
         bodies = new Body[kinect.BodyFrameSource.BodyCount];
         var desc = kinect.ColorFrameSource.CreateFrameDescription(ColorImageFormat.Rgba);
         colorBytes = new byte[desc.LengthInPixels * desc.BytesPerPixel];
-        colorTexture = new Texture2D(desc.Width, desc.Height, TextureFormat.RGBA32, false);
+        colorTexture = new Texture2D(desc.Width, desc.Height, TextureFormat.RGBA32, false)
+        {
+            wrapMode = TextureWrapMode.Clamp,
+        };
 
         bodyFrameReader.FrameArrived += (_, arg) =>
         {
