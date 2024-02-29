@@ -10,18 +10,28 @@ using static BodyPointsProvider;
 public class DetectionManager : MonoBehaviour
 {
     [SerializeField] BodyPointsProvider bodyPointsProvider;
+    [SerializeField] GameObject cursor;
     private Vector3[] screenPoints;
+    private float screenWidth, screenHeight;
+    private Camera cam;
 
     private void Start()
     {
+        cam = Camera.main;
+
         screenPoints = JsonConvert.DeserializeObject<float[][]>(File.ReadAllText("screenCorners.json")).Select(v=>new Vector3(v[0], v[1], v[2])).ToArray();
         Debug.Log("Detection Manager Start");
+
+        screenWidth = Screen.width;
+        screenHeight = Screen.height;
     }
 
     // Update is called once per frame
     void Update()
     {
         Vector2 pointedPixel = Detection();
+        Vector3 cursorPosition = new Vector3(screenWidth * pointedPixel.x, screenHeight * pointedPixel.y, 0);
+        cursor.transform.position = cursorPosition; // cam.ScreenToWorldPoint(cursorPosition);
     }
 
     private Vector2 Detection()
