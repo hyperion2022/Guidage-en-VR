@@ -1,0 +1,14 @@
+#pragma kernel main
+
+StructuredBuffer<float> input;
+RWTexture2D<float4> output;
+
+[numthreads(8,8,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    uint raw = 224;
+    float r = input[(id.y * raw + id.x) * 3 + 0];
+    float g = input[(id.y * raw + id.x) * 3 + 1];
+    float b = input[(id.y * raw + id.x) * 3 + 1];
+    output[id.xy] = float4(r, g, b, 1.0);
+}

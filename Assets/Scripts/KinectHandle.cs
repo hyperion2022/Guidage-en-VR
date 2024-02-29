@@ -5,6 +5,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Assertions;
 using Windows.Kinect;
+using Vector4 = UnityEngine.Vector4;
 
 // https://github.com/Kinect/Docs/blob/master/Kinect4Windows2.0/k4w2/Reference/Kinect_for_Windows_v2/Kinect/KinectSensor_Class.md
 
@@ -106,6 +107,8 @@ public class KinectHandle : MonoBehaviour
         };
         kinect.IsAvailableChanged += (_, arg) => IsAvailableChanged?.Invoke();
     }
+
+    public static Vector3 ToVector3(Windows.Kinect.Joint joint) => new(joint.Position.X, joint.Position.Y, joint.Position.Z);
 
     public void FlippedColorTexture(RenderTexture destination) {
         Assert.IsTrue(colorTexture.width == destination.width);

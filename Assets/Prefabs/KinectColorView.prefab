@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 600310941143723103}
   - component: {fileID: 6980345251527520556}
   m_Layer: 0
-  m_Name: KinectHandTrackingView
+  m_Name: KinectColorView
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

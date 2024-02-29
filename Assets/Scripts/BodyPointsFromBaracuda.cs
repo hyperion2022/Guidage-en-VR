@@ -9,7 +9,7 @@ public class BodyPointsFromBaracuda : BodyPointsProvider
     [SerializeField]
     KinectHandle kinect;
     [SerializeField] ResourceSet resources = null;
-    HandPipeline pipeline;
+    private HandPipeline pipeline;
 
     Dictionary<BodyPoint, int> availablePoints = new Dictionary<BodyPoint, int>
     {
@@ -41,6 +41,12 @@ public class BodyPointsFromBaracuda : BodyPointsProvider
         pipeline = new HandPipeline(resources);
         kinect.ColorTextureChanged += () => pipeline.ProcessImage(kinect.ColorTexture);
         pipeline.BodyPointsUpdatedEvent += RaiseBodyPointsChanged;
+
+        var go = transform.Find("InspectBaracudaInput");
+        if (go != null) {
+            var inspect = go.GetComponent<InspectBaracudaInput>();
+            inspect.source = pipeline.HandRegionCropBuffer;
+        }
     }
 
     void OnDestroy()

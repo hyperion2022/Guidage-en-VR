@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using MediaPipe.BlazePalm;
 using MediaPipe.HandLandmark;
@@ -28,8 +29,10 @@ namespace MediaPipe.HandPose
         // this detect the hand points
         readonly HandLandmarkDetector landmark;
         public readonly ComputeBuffer KeyPointBuffer;
+        public readonly ComputeBuffer StatBuffer;
+        public Vector4[] Stat;
 
-        
+
         public ComputeBuffer HandRegionCropBuffer => landmark.InputBuffer;
 
         public HandPipeline(ResourceSet resources)
@@ -44,6 +47,8 @@ namespace MediaPipe.HandPose
 
             HandRegionBuffer = new ComputeBuffer(1, regionStructSize);
             KeyPointBuffer = new ComputeBuffer(filterBufferLength, sizeof(float) * 4);
+            StatBuffer = new ComputeBuffer(1, 4 * sizeof(float));
+            Stat = new[] { Vector4.zero };
 
             Shader.SetKeyword(GlobalKeyword.Create("NCHW_INPUT"), palm.InputIsNCHW);
         }
@@ -55,6 +60,9 @@ namespace MediaPipe.HandPose
             HandRegionBuffer.Dispose();
             KeyPointBuffer.Dispose();
         }
+
+        public float Score => Stat[0].x;
+        public float Handedness => Stat[0].y;
 
         public void ProcessImage(Texture input)
         {
@@ -91,6 +99,10 @@ namespace MediaPipe.HandPose
             // Hand landmark detection
             landmark.ProcessInput();
 
+            cs.SetBuffer(4, "_stat_input", landmark.OutputBuffer);
+            cs.SetBuffer(4, "_stat_output", StatBuffer);
+            cs.Dispatch(4, 1, 1, 1);
+
             // Key point postprocess
             cs.SetFloat("_post_dt", Time.deltaTime);
             cs.SetFloat("_post_scale", scale.y);
@@ -102,10 +114,14 @@ namespace MediaPipe.HandPose
             AsyncGPUReadback.Request(KeyPointBuffer, KeyPointCount * sizeof(float) * 4, 0, req =>
             {
                 req.GetData<Vector4>().CopyTo(HandPoints);
+                StatBuffer.GetData(Stat);
                 BodyPointsUpdatedEvent?.Invoke();
             });
         }
-        public delegate void BodyPointsUpdated();
-        public event BodyPointsUpdated BodyPointsUpdatedEvent;
+        public event Action BodyPointsUpdatedEvent;
+
+        public Vector3 GetWrist => HandPoints[0];
+        public Vector3 GetIndex1 => HandPoints[5];
+
     }
 }

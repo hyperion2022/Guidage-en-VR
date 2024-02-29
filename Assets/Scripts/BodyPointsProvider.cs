@@ -24,6 +24,12 @@ public abstract class BodyPointsProvider: MonoBehaviour {
 
     public enum BodyPoint {
         Head,
+        Neck,
+        SpineShoulder,
+        LeftShoulder,
+        RightShoulder,
+        LeftElbow,
+        RightElbow,
         LeftWrist,
         LeftIndex,
         LeftIndex1,
