@@ -93,6 +93,9 @@ public class AdvancedTracking : BodyPointsProvider
         if (body == null) return;
         foreach (var hand in hands)
         {
+            if (hand.pipeline.Busy) {
+                continue;
+            }
             computeShader.SetTexture(0, "input", kinectHandle.ColorTexture);
             computeShader.SetTexture(0, "output", hand.texture);
             computeShader.SetVector("box", hand.box);

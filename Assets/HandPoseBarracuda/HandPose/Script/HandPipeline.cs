@@ -31,12 +31,14 @@ namespace MediaPipe.HandPose
         public readonly ComputeBuffer KeyPointBuffer;
         public readonly ComputeBuffer StatBuffer;
         public Vector4[] Stat;
+        public bool Busy;
 
 
         public ComputeBuffer HandRegionCropBuffer => landmark.InputBuffer;
 
         public HandPipeline(ResourceSet resources)
         {
+            Busy = false;
             resourceSet = resources;
 
             palm = new PalmDetector(resourceSet.blazePalm);
@@ -55,10 +57,12 @@ namespace MediaPipe.HandPose
 
         public void Dispose()
         {
+            Busy = false;
             palm.Dispose();
             landmark.Dispose();
             HandRegionBuffer.Dispose();
             KeyPointBuffer.Dispose();
+            StatBuffer.Dispose();
         }
 
         public float Score => Stat[0].x;
@@ -66,6 +70,8 @@ namespace MediaPipe.HandPose
 
         public void ProcessImage(Texture input)
         {
+            if (Busy) return;
+            Busy = true;
             var cs = resourceSet.compute;
 
             // Letterboxing scale factor
@@ -113,8 +119,10 @@ namespace MediaPipe.HandPose
 
             AsyncGPUReadback.Request(KeyPointBuffer, KeyPointCount * sizeof(float) * 4, 0, req =>
             {
+                if (!Busy) return;
                 req.GetData<Vector4>().CopyTo(HandPoints);
                 StatBuffer.GetData(Stat);
+                Busy = false;
                 BodyPointsUpdatedEvent?.Invoke();
             });
         }
