@@ -13,7 +13,8 @@ public class AdvancedTracking : BodyPointsProvider
     private struct Hand {
         public int index;
         public HandPipeline pipeline;
-        public Vector4 box;
+        public Vector4 colorBox;
+        public Vector4 infraredBox;
         public JointType center;
         public JointType wrist;
         public RenderTexture texture;
@@ -27,7 +28,8 @@ public class AdvancedTracking : BodyPointsProvider
             new(){
                 index = 0,
                 pipeline = new(resourceSet),
-                box = new(0f, 0f, 1f, 1f),
+                colorBox = new(0f, 0f, 1f, 1f),
+                infraredBox = new(0f, 0f, 1f, 1f),
                 center = JointType.HandLeft,
                 wrist = JointType.WristLeft,
                 texture = new(512, 512, 0){enableRandomWrite = true},
@@ -36,7 +38,8 @@ public class AdvancedTracking : BodyPointsProvider
             new(){
                 index = 1,
                 pipeline = new(resourceSet),
-                box = new(0f, 0f, 1f, 1f),
+                colorBox = new(0f, 0f, 1f, 1f),
+                infraredBox = new(0f, 0f, 1f, 1f),
                 center = JointType.HandRight,
                 wrist = JointType.WristRight,
                 texture = new(512, 512, 0){enableRandomWrite = true},
@@ -57,34 +60,66 @@ public class AdvancedTracking : BodyPointsProvider
         {
             go.GetComponent<InspectBaracudaInput>().source = hands[1].pipeline.HandRegionCropBuffer;
         }
+        go = transform.Find("Inspect2");
+        if (go != null) {
+            go.GetComponent<MeshRenderer>().material.mainTexture = hands[0].texture;
+        }
+        go = transform.Find("Inspect3");
+        if (go != null) {
+            go.GetComponent<MeshRenderer>().material.mainTexture = hands[1].texture;
+        }
     }
 
 
     // From a kinect tracked position (relative to kinect camera)
     // finds where it lands on the camera image in normalized coordinates
-    private static Vector4 BoundingBox(Vector3 pos)
-    {
-        var hpos = new Vector2(pos.x, pos.z).normalized;
-        var vpos = new Vector2(-pos.y, pos.z).normalized;
-        var h = Mathf.Asin(hpos.x) / Mathf.PI * 180.0f;
-        var v = Mathf.Asin(vpos.x) / Mathf.PI * 180.0f;
-        var H = 84.1f; // kinect horizontal field of view in degrees
-        var V = 53.8f; // kinect vertical field of view in degrees
+    // private static Vector4 BoundingBox(Vector2 fov, Vector3 pos)
+    // {
+    //     var hpos = new Vector2(pos.x, pos.z).normalized;
+    //     var vpos = new Vector2(-pos.y, pos.z).normalized;
+    //     var h = Mathf.Asin(hpos.x) / Mathf.PI * 180.0f;
+    //     var v = Mathf.Asin(vpos.x) / Mathf.PI * 180.0f;
 
-        var boundingBox = Vector4.zero;
-        boundingBox.z = 2f * 0.09f / pos.z;
-        boundingBox.w = 2f * 0.16f / pos.z;
-        boundingBox.x = (h + (H / 2f)) / H - boundingBox.z / 2f;
-        boundingBox.y = (v + (V / 2f)) / V - boundingBox.w / 2f;
-        return boundingBox;
+    //     var boundingBox = Vector4.zero;
+    //     boundingBox.z = 2f * 0.09f / pos.z;
+    //     boundingBox.w = 2f * 0.16f / pos.z;
+    //     boundingBox.x = (h + (fov.x / 2f)) / fov.x - boundingBox.z / 2f;
+    //     boundingBox.y = (v + (fov.y / 2f)) / fov.y - boundingBox.w / 2f;
+    //     return boundingBox;
+    // }
+
+    private static Vector4 BoundingBox(Vector2 fov, Vector3 pos) {
+        pos.y *= -1;
+        var pos1 = pos - new Vector3(0.18f, 0.18f, 0f);
+        var pos2 = pos + new Vector3(0.18f, 0.18f, 0f);
+        var img1 = WorldToImage(fov, pos1);
+        var img2 = WorldToImage(fov, pos2);
+        return new Vector4(img1.x, img1.y, img2.x - img1.x, img2.y - img1.y);
+    }
+    private static Vector2 WorldToImage(Vector2 fov, Vector3 pos) {
+        var nx = pos.x / pos.z;
+        var ny = pos.y / pos.z;
+        var hw = Mathf.Tan(fov.x / 2f);
+        var vw = Mathf.Tan(fov.y / 2f);
+        return new((nx / hw + 1f) / 2f, (ny / vw + 1f) / 2f);
     }
 
     void OnKinectBodiesChange()
     {
         var body = kinectHandle.TrackedBody;
         if (body == null) return;
-        hands[0].box = BoundingBox(KinectHandle.ToVector3(body.Joints[hands[0].center]));
-        hands[1].box = BoundingBox(KinectHandle.ToVector3(body.Joints[hands[1].center]));
+        hands[0].colorBox = BoundingBox(kinectHandle.ColorFov, KinectHandle.ToVector3(body.Joints[hands[0].center]));
+        hands[1].colorBox = BoundingBox(kinectHandle.ColorFov, KinectHandle.ToVector3(body.Joints[hands[1].center]));
+        hands[0].infraredBox = BoundingBox(kinectHandle.InfraredFov, KinectHandle.ToVector3(body.Joints[hands[0].center]) + new Vector3(-0.038f, 0.01f, 0f));
+        hands[1].infraredBox = BoundingBox(kinectHandle.InfraredFov, KinectHandle.ToVector3(body.Joints[hands[1].center]) + new Vector3(-0.038f, 0.01f, 0f));
+
+        foreach (var hand in hands) {
+            var dif = KinectHandle.ToVector3(body.Joints[hand.wrist]) - (Vector3)hand.points[0];
+            for (int i = 0; i < 21; i++) {
+                hand.points[i] += new Vector4(dif.x, dif.y, dif.z, 0f);
+            }
+        }
+        RaiseBodyPointsChanged();
     }
 
     void OnKinectColorChange()
@@ -97,9 +132,12 @@ public class AdvancedTracking : BodyPointsProvider
         if (body == null) return;
         foreach (var hand in hands)
         {
-            computeShader.SetTexture(0, "input", kinectHandle.ColorTexture);
+            // computeShader.SetInts("infrared_dim", new[]{kinectHandle.InfraredDim.x, kinectHandle.InfraredDim.y});
+            computeShader.SetTexture(0, "infrared", kinectHandle.InfraredTexture);
+            computeShader.SetTexture(0, "color", kinectHandle.ColorTexture);
             computeShader.SetTexture(0, "output", hand.texture);
-            computeShader.SetVector("box", hand.box);
+            computeShader.SetVector("color_box", hand.colorBox);
+            computeShader.SetVector("infrared_box", hand.infraredBox);
             computeShader.Dispatch(0, 512 / 8, 512 / 8, 1);
             hand.pipeline.ProcessImage(hand.texture);
 
