@@ -14,6 +14,7 @@ public class BodyPointsFromKinect : BodyPointsProvider
     void Start()
     {
         Assert.IsNotNull(kinect);
+        kinect.OpenBody();
         kinect.BodiesChanged += RaiseBodyPointsChanged;
     }
 

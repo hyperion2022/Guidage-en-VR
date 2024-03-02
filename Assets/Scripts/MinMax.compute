@@ -1,0 +1,22 @@
+#pragma kernel main
+
+Texture2D<float4> input;
+RWTexture2D<float4> output;
+
+[numthreads(8,8,1)]
+void main(uint2 id : SV_DispatchThreadID)
+{
+    uint2 p = id * 2;
+    uint2 p0 = uint2(0, 0);
+    uint2 p1 = uint2(0, 1);
+    uint2 p2 = uint2(1, 0);
+    uint2 p3 = uint2(1, 1);
+    float4 v0 = input[p + p0];
+    float4 v1 = input[p + p1];
+    float4 v2 = input[p + p2];
+    float4 v3 = input[p + p3];
+
+    float4 m = max(max(v0, v1), max(v2, v3));
+    float4 a = (v0 + v1 + v2 + v3) / 4.0;
+    output[id] = 0.6 * m + 0.4 * a;
+}

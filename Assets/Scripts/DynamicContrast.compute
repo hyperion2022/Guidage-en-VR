@@ -1,0 +1,11 @@
+#pragma kernel main
+
+Texture2D<float4> max;
+RWTexture2D<float4> result;
+
+[numthreads(8,8,1)]
+void main(uint2 id : SV_DispatchThreadID)
+{
+    float v = clamp(result[id].r / (max[uint2(0, 0)].r + 0.05), 0.0, 1.0);
+    result[id] = float4(v, v, v, 1.0);
+}

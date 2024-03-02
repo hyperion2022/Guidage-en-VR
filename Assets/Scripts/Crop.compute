@@ -1,0 +1,13 @@
+#pragma kernel main
+
+sampler2D input;
+float4 box;
+RWTexture2D<float4> output;
+
+[numthreads(8,8,1)]
+void main(uint2 id : SV_DispatchThreadID)
+{
+    float x = id.x / 512.0 * box.z + box.x;
+    float y = id.y / 512.0 * box.w + box.y;
+    output[uint2(id.x, 511 - id.y)] = tex2Dgrad(input, float2(x, y), 0.0, 0.0);
+}

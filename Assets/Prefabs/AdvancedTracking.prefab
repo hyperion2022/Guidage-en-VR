@@ -44,6 +44,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5c29e9c13d7c14f4a9e05c17de9f1485, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  inputMode: 1
   kinectHandle: {fileID: 0}
   resourceSet: {fileID: 11400000, guid: 91bfddd4f6a664d13be4b4a5340a2099, type: 2}
-  computeShader: {fileID: 7200000, guid: ee011b88a22e7654abd79d04b741eeb4, type: 3}
+  cropShader: {fileID: 7200000, guid: 4af6e85121e516c4cb5f4a0c601916ee, type: 3}
+  minMaxShader: {fileID: 7200000, guid: e4aff18ed9941cd4db907409624df293, type: 3}
+  dynamicContrastShader: {fileID: 7200000, guid: ccf52e40cdd74c84f8ad5a52485f6e2f, type: 3}
+  colorizeShader: {fileID: 7200000, guid: 75cbf4c949a70184580f63b77feb15ac, type: 3}

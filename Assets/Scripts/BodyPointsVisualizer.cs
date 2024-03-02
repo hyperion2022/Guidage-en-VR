@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Assertions;
 using BodyPoint = BodyPointsProvider.BodyPoint;
 
 public class BodyPointsVisualizer : MonoBehaviour
@@ -8,6 +9,7 @@ public class BodyPointsVisualizer : MonoBehaviour
     [SerializeField]
     BodyPointsProvider bodyPointsProvider;
 
+    private bool updated;
     (BodyPoint, GameObject)[] spheres;
     (BodyPoint, BodyPoint, GameObject)[] cylinders;
 
@@ -124,6 +126,8 @@ public class BodyPointsVisualizer : MonoBehaviour
 
     void Start()
     {
+        Assert.IsNotNull(bodyPointsProvider);
+        updated = true;
         spheres = bodyPointsProvider.AvailablePoints.Select(k =>
             (k, DebugVisuals.CreateSphere(transform, nodes.GetValueOrDefault(k, 0.05f), Color.white, k.ToString()))
         ).ToArray();
@@ -139,7 +143,7 @@ public class BodyPointsVisualizer : MonoBehaviour
             }
         }
         cylinders = list.ToArray();
-        bodyPointsProvider.BodyPointsChanged += NewPoints;
+        bodyPointsProvider.BodyPointsChanged += () => updated = true;
     }
 
     private static Color trackingStateToColor(float ts)
@@ -153,25 +157,22 @@ public class BodyPointsVisualizer : MonoBehaviour
         };
     }
 
-    void OnDestroy()
-    {
-        bodyPointsProvider.BodyPointsChanged -= NewPoints;
-    }
-
-    void NewPoints()
-    {
-        foreach (var (k, go) in spheres)
-        {
-            var v = bodyPointsProvider.GetBodyPoint(k);
-            DebugVisuals.SphereAt(go, v);
-            go.GetComponent<Renderer>().material.color = trackingStateToColor(v.w);
-        }
-        foreach (var (k1, k2, go) in cylinders)
-        {
-            var v1 = bodyPointsProvider.GetBodyPoint(k1);
-            var v2 = bodyPointsProvider.GetBodyPoint(k2);
-            DebugVisuals.CylinderBetween(go, v1, v2);
-            go.GetComponent<Renderer>().material.color = trackingStateToColor(v1.w);
+    void Update() {
+        if (updated) {
+            updated = false;
+            foreach (var (k, go) in spheres)
+            {
+                var v = bodyPointsProvider.GetBodyPoint(k);
+                DebugVisuals.SphereAt(go, v);
+                go.GetComponent<Renderer>().material.color = trackingStateToColor(v.w);
+            }
+            foreach (var (k1, k2, go) in cylinders)
+            {
+                var v1 = bodyPointsProvider.GetBodyPoint(k1);
+                var v2 = bodyPointsProvider.GetBodyPoint(k2);
+                DebugVisuals.CylinderBetween(go, v1, v2);
+                go.GetComponent<Renderer>().material.color = trackingStateToColor(v1.w);
+            }
         }
     }
 }

@@ -3,14 +3,27 @@ using UnityEngine;
 using JointType = Windows.Kinect.JointType;
 using System.Linq;
 using System.Collections.Generic;
+using UnityEngine.Assertions;
 
 public class AdvancedTracking : BodyPointsProvider
 {
+    [SerializeField] InputMode inputMode = InputMode.Color;
     [SerializeField] KinectHandle kinectHandle;
     [SerializeField] ResourceSet resourceSet;
-    [SerializeField] ComputeShader computeShader;
+    [SerializeField] ComputeShader cropShader;
+    [SerializeField] ComputeShader minMaxShader;
+    [SerializeField] ComputeShader dynamicContrastShader;
+    [SerializeField] ComputeShader colorizeShader;
 
-    private struct Hand {
+    public enum InputMode
+    {
+        Color,
+        Infrared,
+        Combined,
+    }
+
+    private class Hand
+    {
         public int index;
         public HandPipeline pipeline;
         public Vector4 colorBox;
@@ -21,9 +34,20 @@ public class AdvancedTracking : BodyPointsProvider
         public Vector4[] points;
     }
     private Hand[] hands;
+    private RenderTexture minMax1;
+    private RenderTexture minMax2;
 
     void Start()
     {
+        Assert.IsNotNull(kinectHandle);
+        Assert.IsNotNull(resourceSet);
+        Assert.IsNotNull(cropShader);
+        Assert.IsNotNull(minMaxShader);
+        Assert.IsNotNull(dynamicContrastShader);
+        Assert.IsNotNull(colorizeShader);
+
+        minMax1 = new RenderTexture(256, 256, 0) { enableRandomWrite = true };
+        minMax2 = new RenderTexture(256, 256, 0) { enableRandomWrite = true };
         hands = new Hand[]{
             new(){
                 index = 0,
@@ -46,8 +70,26 @@ public class AdvancedTracking : BodyPointsProvider
                 points = Enumerable.Repeat(absent, 21).ToArray(),
             },
         };
+        switch (inputMode)
+        {
+            case InputMode.Color:
+                kinectHandle.OpenBody();
+                kinectHandle.OpenColor();
+                kinectHandle.ColorTextureChanged += HandAnalysis;
+                break;
+            case InputMode.Infrared:
+                kinectHandle.OpenBody();
+                kinectHandle.OpenInfrared();
+                kinectHandle.InfraredTextureChanged += HandAnalysis;
+                break;
+            case InputMode.Combined:
+                kinectHandle.OpenBody();
+                kinectHandle.OpenColor();
+                kinectHandle.OpenInfrared();
+                kinectHandle.InfraredTextureChanged += HandAnalysis;
+                break;
+        }
         kinectHandle.BodiesChanged += OnKinectBodiesChange;
-        kinectHandle.ColorTextureChanged += OnKinectColorChange;
 
         Transform go;
         go = transform.Find("Inspect0");
@@ -61,11 +103,13 @@ public class AdvancedTracking : BodyPointsProvider
             go.GetComponent<InspectBaracudaInput>().source = hands[1].pipeline.HandRegionCropBuffer;
         }
         go = transform.Find("Inspect2");
-        if (go != null) {
+        if (go != null)
+        {
             go.GetComponent<MeshRenderer>().material.mainTexture = hands[0].texture;
         }
         go = transform.Find("Inspect3");
-        if (go != null) {
+        if (go != null)
+        {
             go.GetComponent<MeshRenderer>().material.mainTexture = hands[1].texture;
         }
     }
@@ -73,22 +117,8 @@ public class AdvancedTracking : BodyPointsProvider
 
     // From a kinect tracked position (relative to kinect camera)
     // finds where it lands on the camera image in normalized coordinates
-    // private static Vector4 BoundingBox(Vector2 fov, Vector3 pos)
-    // {
-    //     var hpos = new Vector2(pos.x, pos.z).normalized;
-    //     var vpos = new Vector2(-pos.y, pos.z).normalized;
-    //     var h = Mathf.Asin(hpos.x) / Mathf.PI * 180.0f;
-    //     var v = Mathf.Asin(vpos.x) / Mathf.PI * 180.0f;
-
-    //     var boundingBox = Vector4.zero;
-    //     boundingBox.z = 2f * 0.09f / pos.z;
-    //     boundingBox.w = 2f * 0.16f / pos.z;
-    //     boundingBox.x = (h + (fov.x / 2f)) / fov.x - boundingBox.z / 2f;
-    //     boundingBox.y = (v + (fov.y / 2f)) / fov.y - boundingBox.w / 2f;
-    //     return boundingBox;
-    // }
-
-    private static Vector4 BoundingBox(Vector2 fov, Vector3 pos) {
+    private static Vector4 BoundingBox(Vector2 fov, Vector3 pos)
+    {
         pos.y *= -1;
         var pos1 = pos - new Vector3(0.18f, 0.18f, 0f);
         var pos2 = pos + new Vector3(0.18f, 0.18f, 0f);
@@ -96,7 +126,8 @@ public class AdvancedTracking : BodyPointsProvider
         var img2 = WorldToImage(fov, pos2);
         return new Vector4(img1.x, img1.y, img2.x - img1.x, img2.y - img1.y);
     }
-    private static Vector2 WorldToImage(Vector2 fov, Vector3 pos) {
+    private static Vector2 WorldToImage(Vector2 fov, Vector3 pos)
+    {
         var nx = pos.x / pos.z;
         var ny = pos.y / pos.z;
         var hw = Mathf.Tan(fov.x / 2f);
@@ -108,49 +139,120 @@ public class AdvancedTracking : BodyPointsProvider
     {
         var body = kinectHandle.TrackedBody;
         if (body == null) return;
-        hands[0].colorBox = BoundingBox(kinectHandle.ColorFov, KinectHandle.ToVector3(body.Joints[hands[0].center]));
-        hands[1].colorBox = BoundingBox(kinectHandle.ColorFov, KinectHandle.ToVector3(body.Joints[hands[1].center]));
-        hands[0].infraredBox = BoundingBox(kinectHandle.InfraredFov, KinectHandle.ToVector3(body.Joints[hands[0].center]) + new Vector3(-0.038f, 0.01f, 0f));
-        hands[1].infraredBox = BoundingBox(kinectHandle.InfraredFov, KinectHandle.ToVector3(body.Joints[hands[1].center]) + new Vector3(-0.038f, 0.01f, 0f));
 
-        foreach (var hand in hands) {
+        foreach (var hand in hands)
+        {
+            var pos = KinectHandle.ToVector3(body.Joints[hand.center]);
+            pos.z -= 0.06f;
+            hand.colorBox = BoundingBox(kinectHandle.ColorFov, pos + new Vector3(0.0465f, -0.015f, 0f));
+            hand.infraredBox = BoundingBox(kinectHandle.InfraredFov, pos);
             var dif = KinectHandle.ToVector3(body.Joints[hand.wrist]) - (Vector3)hand.points[0];
-            for (int i = 0; i < 21; i++) {
+            for (int i = 0; i < 21; i++)
+            {
                 hand.points[i] += new Vector4(dif.x, dif.y, dif.z, 0f);
             }
         }
         RaiseBodyPointsChanged();
     }
 
-    void OnKinectColorChange()
+    void HandAnalysis()
     {
-        if (hands[0].pipeline.Busy || hands[0].pipeline.Busy) {
-            Debug.Log("Tracking: Skipping frame due to busy GPU");
-            return;
-        }
         var body = kinectHandle.TrackedBody;
-        if (body == null) return;
+        if (hands[0].pipeline.Busy || hands[0].pipeline.Busy || body == null) return;
+
         foreach (var hand in hands)
         {
-            // computeShader.SetInts("infrared_dim", new[]{kinectHandle.InfraredDim.x, kinectHandle.InfraredDim.y});
-            computeShader.SetTexture(0, "infrared", kinectHandle.InfraredTexture);
-            computeShader.SetTexture(0, "color", kinectHandle.ColorTexture);
-            computeShader.SetTexture(0, "output", hand.texture);
-            computeShader.SetVector("color_box", hand.colorBox);
-            computeShader.SetVector("infrared_box", hand.infraredBox);
-            computeShader.Dispatch(0, 512 / 8, 512 / 8, 1);
+            if (inputMode != InputMode.Color)
+            {
+                // select the desired box
+                cropShader.SetVector("box", hand.infraredBox);
+                cropShader.SetTexture(0, "input", kinectHandle.InfraredTexture);
+                cropShader.SetTexture(0, "output", hand.texture);
+                cropShader.Dispatch(0, 512 / 8, 512 / 8, 1);
+
+                // now find what's the maximum value
+
+                // 256
+                minMaxShader.SetTexture(0, "input", hand.texture);
+                minMaxShader.SetTexture(0, "output", minMax1);
+                minMaxShader.Dispatch(0, 256 / 8, 256 / 8, 1);
+
+                // 128
+                minMaxShader.SetTexture(0, "input", minMax1);
+                minMaxShader.SetTexture(0, "output", minMax2);
+                minMaxShader.Dispatch(0, 128 / 8, 128 / 8, 1);
+
+                // 64
+                minMaxShader.SetTexture(0, "input", minMax2);
+                minMaxShader.SetTexture(0, "output", minMax1);
+                minMaxShader.Dispatch(0, 64 / 8, 64 / 8, 1);
+
+                // 32
+                minMaxShader.SetTexture(0, "input", minMax1);
+                minMaxShader.SetTexture(0, "output", minMax2);
+                minMaxShader.Dispatch(0, 32 / 8, 32 / 8, 1);
+
+                // 16
+                minMaxShader.SetTexture(0, "input", minMax2);
+                minMaxShader.SetTexture(0, "output", minMax1);
+                minMaxShader.Dispatch(0, 16 / 8, 16 / 8, 1);
+
+                // 8
+                minMaxShader.SetTexture(0, "input", minMax1);
+                minMaxShader.SetTexture(0, "output", minMax2);
+                minMaxShader.Dispatch(0, 8 / 8, 8 / 8, 1);
+
+                // 4
+                minMaxShader.SetTexture(0, "input", minMax2);
+                minMaxShader.SetTexture(0, "output", minMax1);
+                minMaxShader.Dispatch(0, 1, 1, 1);
+
+                // 2
+                minMaxShader.SetTexture(0, "input", minMax1);
+                minMaxShader.SetTexture(0, "output", minMax2);
+                minMaxShader.Dispatch(0, 1, 1, 1);
+
+                // 1
+                minMaxShader.SetTexture(0, "input", minMax2);
+                minMaxShader.SetTexture(0, "output", minMax1);
+                minMaxShader.Dispatch(0, 1, 1, 1);
+
+                // apply dynamic contrast by dividing by the max value
+                dynamicContrastShader.SetTexture(0, "result", hand.texture);
+                dynamicContrastShader.SetTexture(0, "max", minMax1);
+                dynamicContrastShader.Dispatch(0, 512 / 8, 512 / 8, 1);
+
+                if (inputMode == InputMode.Combined)
+                {
+                    colorizeShader.SetTexture(0, "color", kinectHandle.ColorTexture);
+                    colorizeShader.SetVector("box", hand.colorBox);
+                    colorizeShader.SetTexture(0, "result", hand.texture);
+                    colorizeShader.Dispatch(0, 512 / 8, 512 / 8, 1);
+                }
+            }
+            else
+            {
+                // select the desired box
+                cropShader.SetVector("box", hand.colorBox);
+                cropShader.SetTexture(0, "input", kinectHandle.ColorTexture);
+                cropShader.SetTexture(0, "output", hand.texture);
+                cropShader.Dispatch(0, 512 / 8, 512 / 8, 1);
+            }
+
             hand.pipeline.ProcessImage(hand.texture);
 
             hand.pipeline.BodyPointsUpdatedEvent += () =>
             {
+                if (hand.pipeline.Score < 0.7) return;
                 var h = hand.pipeline.Handedness;
                 if (hand.index == 0 ? (h > 0.8 && h < 1.2) : (h > -0.2 && h < 0.2))
                 {
                     var ref1 = hand.pipeline.GetWrist;
                     var ref2 = hand.pipeline.GetIndex1;
                     var dist = Vector3.Distance(ref1, ref2);
-                    if (dist > 0.1f && dist < 4f) {
-                        var scale = 0.11f / dist;
+                    if (dist > 0.1f && dist < 4f)
+                    {
+                        var scale = 0.1f / dist;
                         var wristAbs = KinectHandle.ToVector3(body.Joints[hand.wrist]);
                         var wristRel = hand.pipeline.GetWrist;
                         for (int i = 0; i < 21; i++)
@@ -169,7 +271,8 @@ public class AdvancedTracking : BodyPointsProvider
     void OnDestroy()
     {
         kinectHandle.BodiesChanged -= OnKinectBodiesChange;
-        kinectHandle.ColorTextureChanged -= OnKinectColorChange;
+        kinectHandle.ColorTextureChanged -= HandAnalysis;
+        kinectHandle.InfraredTextureChanged -= HandAnalysis;
         hands[0].pipeline.Dispose();
         hands[1].pipeline.Dispose();
     }
