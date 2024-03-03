@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 600310941143723103}
   - component: {fileID: 6980345251527520556}
   m_Layer: 0
-  m_Name: KinectColorView
+  m_Name: KinectView
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -47,6 +47,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   kinect: {fileID: 0}
+  sourceType: 0
 --- !u!23 &600310941143723103
 MeshRenderer:
   m_ObjectHideFlags: 0

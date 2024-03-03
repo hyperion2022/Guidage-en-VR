@@ -1,0 +1,13 @@
+#pragma kernel main
+
+sampler2D input;
+RWTexture2D<float4> output;
+
+[numthreads(8,8,1)]
+void main(uint2 id : SV_DispatchThreadID)
+{
+    uint w;
+    uint h;
+    output.GetDimensions(w, h);
+    output[id] = tex2Dgrad(input, float2(id.x, h - 1 - id.y) / float2(w, h), 0.0, 0.0);
+}

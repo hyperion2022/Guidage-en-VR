@@ -3,7 +3,6 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Assertions;
 using Windows.Kinect;
-using Joint = Windows.Kinect.Joint;
 using Vector4 = UnityEngine.Vector4;
 
 public class BodyPointsFromKinect : BodyPointsProvider
@@ -18,18 +17,6 @@ public class BodyPointsFromKinect : BodyPointsProvider
         kinect.BodiesChanged += RaiseBodyPointsChanged;
     }
 
-    private static Vector4 JointToVec4(Joint joint)
-    {
-        var w = joint.TrackingState switch
-        {
-            TrackingState.NotTracked => 3,
-            TrackingState.Tracked => 1,
-            TrackingState.Inferred => 2,
-            _ => 1,
-        };
-        return new Vector4(joint.Position.X, joint.Position.Y, joint.Position.Z, w);
-    }
-
     private static readonly Dictionary<BodyPoint, JointType> availablePoints = new()
     {
         [BodyPoint.Head] = JointType.Head,
@@ -42,13 +29,10 @@ public class BodyPointsFromKinect : BodyPointsProvider
     };
     public override Vector4 GetBodyPoint(BodyPoint key)
     {
-        if (!availablePoints.ContainsKey(key)) return Vector4.zero;
+        if (!availablePoints.ContainsKey(key)) return absent;
         var body = kinect.TrackedBody;
-        if (body != null)
-        {
-            return JointToVec4(body.Joints[availablePoints[key]]);
-        }
-        return Vector4.zero;
+        if (body == null) return invalid;
+        return body.GetAware(availablePoints[key]);
     }
     public override BodyPoint[] AvailablePoints => availablePoints.Keys.ToArray();
 }

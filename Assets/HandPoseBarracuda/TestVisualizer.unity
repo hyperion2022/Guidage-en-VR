@@ -426,10 +426,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: KinectHandle
       objectReference: {fileID: 0}
-    - target: {fileID: 9193641108924094695, guid: d2278d58de96ec3459bafa6780a14e9a, type: 3}
-      propertyPath: flipTexture
-      value: 
-      objectReference: {fileID: 7200000, guid: 82f6c5c2cf4a7d543bd209e5c039defa, type: 3}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

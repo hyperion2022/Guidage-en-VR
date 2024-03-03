@@ -3,35 +3,97 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Assertions;
 using Windows.Kinect;
+using Vector4 = UnityEngine.Vector4;
 
 // https://github.com/Kinect/Docs/blob/master/Kinect4Windows2.0/k4w2/Reference/Kinect_for_Windows_v2/Kinect/KinectSensor_Class.md
 
 public class KinectHandle : MonoBehaviour
 {
     [SerializeField] bool EnableLogs;
-    [SerializeField] ComputeShader flipTexture;
+    [SerializeField] ComputeShader flipShader;
+    [SerializeField] ComputeShader cropShader;
     public bool IsAvailable => kinect.IsAvailable;
-    public Body TrackedBody => (body.tracked >= 0) ? body.values[body.tracked] : null;
-    public Texture ColorTexture => color.texture;
-    public Texture InfraredTexture => infrared.texture;
-    public Vector2 ColorFov => color.fov;
-    public Vector2 InfraredFov => infrared.fov;
 
-    public event Action ColorTextureChanged;
-    public event Action InfraredTextureChanged;
+    public class Body {
+        public Windows.Kinect.Body body;
+
+        public Vector3 Get(JointType joint) {
+            var jp = body.Joints[joint].Position;
+            return new(jp.X, jp.Y, jp.Z);
+        }
+        public Vector4 GetAware(JointType joint) {
+            var jp = body.Joints[joint].Position;
+            var w = body.Joints[joint].TrackingState switch
+            {
+                TrackingState.NotTracked => 3,
+                TrackingState.Tracked => 1,
+                TrackingState.Inferred => 2,
+                _ => 1,
+            };
+            return new(jp.X, jp.Y, jp.Z, w);
+        }
+    }
+    public Body TrackedBody => (body.tracked >= 0) ? new Body{body = body.values[body.tracked]} : null;
     public event Action BodiesChanged;
     public event Action IsAvailableChanged;
 
+    private (Source source, ColorFrameReader reader) cl;
+    private (Source source, LongExposureInfraredFrameReader reader) ir;
+
+    public class Source {
+        public ComputeShader cropShader;
+        public ComputeShader flipShader;
+        public Texture2D texture;
+        public Vector2 fov;
+        public Vector3 pov;
+        public event Action Changed;
+
+        public void Update() => Changed?.Invoke();
+
+        public void Crop(Vector3 at, float radius, Texture destination) {
+            cropShader.SetVector("box", BoundingBox(at, radius));
+            cropShader.SetTexture(0, "input", texture);
+            cropShader.SetTexture(0, "output", destination);
+            cropShader.Dispatch(0, destination.width / 8, destination.height / 8, 1);
+        }
+
+        // From a kinect tracked position (relative to kinect camera)
+        // finds where it lands on the camera image in normalized coordinates
+        public Vector4 BoundingBox(Vector3 pos, float radius)
+        {
+            pos.y *= -1;
+            var pos1 = pos - new Vector3(radius, radius, 0f);
+            var pos2 = pos + new Vector3(radius, radius, 0f);
+            var img1 = WorldToImage(pos1);
+            var img2 = WorldToImage(pos2);
+            return new Vector4(img1.x, img1.y, img2.x - img1.x, img2.y - img1.y);
+        }
+        public Vector2 WorldToImage(Vector3 pos)
+        {
+            pos -= pov;
+            var nx = pos.x / pos.z;
+            var ny = pos.y / pos.z;
+            var hw = Mathf.Tan(fov.x / 2f);
+            var vw = Mathf.Tan(fov.y / 2f);
+            return new((nx / hw + 1f) / 2f, (ny / vw + 1f) / 2f);
+        }
+        public void Flip(Texture destination)
+        {
+            flipShader.SetTexture(0, "input", texture);
+            flipShader.SetTexture(0, "output", destination);
+            flipShader.Dispatch(0, destination.width / 8, destination.height / 8, 1);
+        }
+    }
 
     private KinectSensor kinect;
 
-    private (BodyFrameReader reader, Body[] values, int tracked) body;
-    private (Vector3 fov, Texture2D texture, byte[] values, ColorFrameReader reader) color;
-    private (Vector3 fov, Texture2D texture, ushort[] values, LongExposureInfraredFrameReader reader) infrared;
+    private (BodyFrameReader reader, Windows.Kinect.Body[] values, int tracked) body;
 
     private bool init = true;
     void Start()
     {
+        Assert.IsNotNull(flipShader);
+        Assert.IsNotNull(cropShader);
         kinect = KinectSensor.GetDefault();
         if (!kinect.IsOpen)
         {
@@ -44,62 +106,66 @@ public class KinectHandle : MonoBehaviour
         }
         body.reader = null;
         body.tracked = -1;
-        color.reader = null;
-        color.texture = null;
-        color.fov = Vector2.one;
-        infrared.reader = null;
-        infrared.texture = null;
-        infrared.fov = Vector2.one;
+        cl.source = null;
+        ir.source = null;
+        cl.reader = null;
+        ir.reader = null;
         kinect.IsAvailableChanged += (_, arg) => IsAvailableChanged?.Invoke();
     }
 
-    public void OpenColor()
-    {
-        if (color.reader != null) return;
-        color.reader = kinect.ColorFrameSource.OpenReader();
-        Assert.IsNotNull(color.reader);
-        var colorDesc = kinect.ColorFrameSource.CreateFrameDescription(ColorImageFormat.Rgba);
-        color.values = new byte[colorDesc.LengthInPixels * colorDesc.BytesPerPixel];
-        color.texture = new Texture2D(colorDesc.Width, colorDesc.Height, TextureFormat.RGBA32, false)
-        {
-            wrapMode = TextureWrapMode.Clamp,
-        };
-        color.fov = new(colorDesc.HorizontalFieldOfView, colorDesc.VerticalFieldOfView);
-        color.fov *= Mathf.PI / 180f;
-        color.reader.FrameArrived += (_, arg) =>
-        {
-            var frame = arg.FrameReference.AcquireFrame();
-            frame.CopyConvertedFrameDataToArray(color.values, ColorImageFormat.Rgba);
-            frame.Dispose();
-            color.texture.LoadRawTextureData(color.values);
-            color.texture.Apply();
-            ColorTextureChanged?.Invoke();
-        };
+    public Source Cl => GetCl();
+    private Source GetCl() {
+        if (cl.reader == null) {
+            cl.reader = kinect.ColorFrameSource.OpenReader();
+            Assert.IsNotNull(cl.reader);
+            var desc = kinect.ColorFrameSource.CreateFrameDescription(ColorImageFormat.Rgba);
+            var values = new byte[desc.LengthInPixels * desc.BytesPerPixel];
+            cl.source = new Source{
+                texture = new Texture2D(desc.Width, desc.Height, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, },
+                fov = Mathf.PI / 180f * new Vector2(desc.HorizontalFieldOfView, desc.VerticalFieldOfView),
+                pov = new Vector3(-0.0465f, +0.015f, 0f),
+                cropShader = cropShader,
+                flipShader = flipShader,
+            };
+            cl.reader.FrameArrived += (_, arg) =>
+            {
+                var frame = arg.FrameReference.AcquireFrame();
+                frame.CopyConvertedFrameDataToArray(values, ColorImageFormat.Rgba);
+                frame.Dispose();
+                cl.source.texture.LoadRawTextureData(values);
+                cl.source.texture.Apply();
+                cl.source.Update();
+            };
+        }
+        return cl.source;
     }
 
-    public void OpenInfrared()
+    public Source Ir => GetIr();
+    public Source GetIr()
     {
-        if (infrared.reader != null) return;
-        infrared.reader = kinect.LongExposureInfraredFrameSource.OpenReader();
-        Assert.IsNotNull(infrared.reader);
-        var infraredDesc = kinect.LongExposureInfraredFrameSource.FrameDescription;
-        infrared.values = new ushort[infraredDesc.Width * infraredDesc.Height];
-        infrared.texture = new Texture2D(infraredDesc.Width, infraredDesc.Height, TextureFormat.R16, false)
-        {
-            wrapMode = TextureWrapMode.Clamp,
-        };
-        infrared.fov = new(infraredDesc.HorizontalFieldOfView, infraredDesc.VerticalFieldOfView);
-        infrared.fov *= Mathf.PI / 180f;
-
-        infrared.reader.FrameArrived += (_, arg) =>
-        {
-            var frame = arg.FrameReference.AcquireFrame();
-            frame.CopyFrameDataToArray(infrared.values);
-            frame.Dispose();
-            infrared.texture.SetPixelData(infrared.values, 0);
-            infrared.texture.Apply();
-            InfraredTextureChanged?.Invoke();
-        };
+        if (ir.reader == null) {
+            ir.reader = kinect.LongExposureInfraredFrameSource.OpenReader();
+            Assert.IsNotNull(ir.reader);
+            var desc = kinect.LongExposureInfraredFrameSource.FrameDescription;
+            var values = new ushort[desc.Width * desc.Height];
+            ir.source = new Source{
+                texture = new Texture2D(desc.Width, desc.Height, TextureFormat.R16, false) { wrapMode = TextureWrapMode.Clamp, },
+                fov = Mathf.PI / 180f * new Vector2(desc.HorizontalFieldOfView, desc.VerticalFieldOfView),
+                pov = Vector3.zero,
+                cropShader = cropShader,
+                flipShader = flipShader,
+            };
+            ir.reader.FrameArrived += (_, arg) =>
+            {
+                var frame = arg.FrameReference.AcquireFrame();
+                frame.CopyFrameDataToArray(values);
+                frame.Dispose();
+                ir.source.texture.SetPixelData(values, 0);
+                ir.source.texture.Apply();
+                ir.source.Update();
+            };
+        }
+        return ir.source;
     }
 
     public void OpenBody()
@@ -109,7 +175,7 @@ public class KinectHandle : MonoBehaviour
         Assert.IsNotNull(kinect);
         body.reader = kinect.BodyFrameSource.OpenReader();
         Assert.IsNotNull(body.reader);
-        body.values = new Body[kinect.BodyFrameSource.BodyCount];
+        body.values = new Windows.Kinect.Body[kinect.BodyFrameSource.BodyCount];
         body.reader.FrameArrived += (_, arg) =>
         {
             var frame = arg.FrameReference.AcquireFrame();
@@ -156,15 +222,26 @@ public class KinectHandle : MonoBehaviour
 
     public static Vector3 ToVector3(Windows.Kinect.Joint joint) => new(joint.Position.X, joint.Position.Y, joint.Position.Z);
 
-    public void FlippedColorTexture(RenderTexture destination)
-    {
-        Assert.IsTrue(color.texture.width == destination.width);
-        Assert.IsTrue(color.texture.height == destination.height);
-        flipTexture.SetInt("height", destination.height);
-        flipTexture.SetTexture(0, "input", color.texture);
-        flipTexture.SetTexture(0, "output", destination);
-        flipTexture.Dispatch(0, color.texture.width / 8, color.texture.height / 8, 1);
-    }
+
+    // // From a kinect tracked position (relative to kinect camera)
+    // // finds where it lands on the camera image in normalized coordinates
+    // public static Vector4 BoundingBox(Vector2 fov, Vector3 pos, float radius)
+    // {
+    //     pos.y *= -1;
+    //     var pos1 = pos - new Vector3(radius, radius, 0f);
+    //     var pos2 = pos + new Vector3(radius, radius, 0f);
+    //     var img1 = WorldToImage(fov, pos1);
+    //     var img2 = WorldToImage(fov, pos2);
+    //     return new Vector4(img1.x, img1.y, img2.x - img1.x, img2.y - img1.y);
+    // }
+    // public static Vector2 WorldToImage(Vector2 fov, Vector3 pos)
+    // {
+    //     var nx = pos.x / pos.z;
+    //     var ny = pos.y / pos.z;
+    //     var hw = Mathf.Tan(fov.x / 2f);
+    //     var vw = Mathf.Tan(fov.y / 2f);
+    //     return new((nx / hw + 1f) / 2f, (ny / vw + 1f) / 2f);
+    // }
 
     void OnDestroy()
     {
@@ -173,15 +250,15 @@ public class KinectHandle : MonoBehaviour
             body.reader.Dispose();
             body.reader = null;
         }
-        if (color.reader != null)
+        if (cl.reader != null)
         {
-            color.reader.Dispose();
-            color.reader = null;
+            cl.reader.Dispose();
+            cl.reader = null;
         }
-        if (infrared.reader != null)
+        if (ir.reader != null)
         {
-            infrared.reader.Dispose();
-            infrared.reader = null;
+            ir.reader.Dispose();
+            ir.reader = null;
         }
         if (kinect.IsOpen)
         {

@@ -7,10 +7,10 @@ using UnityEngine.Assertions;
 
 public class AdvancedTracking : BodyPointsProvider
 {
-    [SerializeField] InputMode inputMode = InputMode.Color;
+    [SerializeField] InputMode[] inputModes = {InputMode.Color};
     [SerializeField] KinectHandle kinectHandle;
     [SerializeField] ResourceSet resourceSet;
-    [SerializeField] ComputeShader cropShader;
+    // [SerializeField] ComputeShader cropShader;
     [SerializeField] ComputeShader minMaxShader;
     [SerializeField] ComputeShader dynamicContrastShader;
     [SerializeField] ComputeShader colorizeShader;
@@ -25,114 +25,102 @@ public class AdvancedTracking : BodyPointsProvider
     private class Hand
     {
         public int index;
-        public HandPipeline pipeline;
-        public Vector4 colorBox;
-        public Vector4 infraredBox;
+        public HandTracking[] pipelines;
+        public Vector3 pos;
         public JointType center;
         public JointType wrist;
-        public RenderTexture texture;
+        public RenderTexture[] textures;
         public Vector4[] points;
+        public float score;
     }
     private Hand[] hands;
     private RenderTexture minMax1;
     private RenderTexture minMax2;
 
+    private KinectHandle.Source ir;
+    private KinectHandle.Source cl;
+
     void Start()
     {
         Assert.IsNotNull(kinectHandle);
         Assert.IsNotNull(resourceSet);
-        Assert.IsNotNull(cropShader);
         Assert.IsNotNull(minMaxShader);
         Assert.IsNotNull(dynamicContrastShader);
         Assert.IsNotNull(colorizeShader);
+        Assert.IsTrue(inputModes.Length > 0);
 
+        ir = null;
+        cl = null;
         minMax1 = new RenderTexture(256, 256, 0) { enableRandomWrite = true };
         minMax2 = new RenderTexture(256, 256, 0) { enableRandomWrite = true };
         hands = new Hand[]{
             new(){
                 index = 0,
-                pipeline = new(resourceSet),
-                colorBox = new(0f, 0f, 1f, 1f),
-                infraredBox = new(0f, 0f, 1f, 1f),
+                pipelines = inputModes.Select(_ => new HandTracking(resourceSet)).ToArray(),
+                textures = inputModes.Select(_ => new RenderTexture(512, 512, 0){enableRandomWrite = true}).ToArray(),
+                pos = Vector3.zero,
                 center = JointType.HandLeft,
                 wrist = JointType.WristLeft,
-                texture = new(512, 512, 0){enableRandomWrite = true},
                 points = Enumerable.Repeat(absent, 21).ToArray(),
+                score = 0.7f,
             },
             new(){
                 index = 1,
-                pipeline = new(resourceSet),
-                colorBox = new(0f, 0f, 1f, 1f),
-                infraredBox = new(0f, 0f, 1f, 1f),
+                pipelines = inputModes.Select(_ => new HandTracking(resourceSet)).ToArray(),
+                textures = inputModes.Select(_ => new RenderTexture(512, 512, 0){enableRandomWrite = true}).ToArray(),
+                pos = Vector3.zero,
                 center = JointType.HandRight,
                 wrist = JointType.WristRight,
-                texture = new(512, 512, 0){enableRandomWrite = true},
                 points = Enumerable.Repeat(absent, 21).ToArray(),
+                score = 0.7f,
             },
         };
-        switch (inputMode)
-        {
-            case InputMode.Color:
-                kinectHandle.OpenBody();
-                kinectHandle.OpenColor();
-                kinectHandle.ColorTextureChanged += HandAnalysis;
-                break;
-            case InputMode.Infrared:
-                kinectHandle.OpenBody();
-                kinectHandle.OpenInfrared();
-                kinectHandle.InfraredTextureChanged += HandAnalysis;
-                break;
-            case InputMode.Combined:
-                kinectHandle.OpenBody();
-                kinectHandle.OpenColor();
-                kinectHandle.OpenInfrared();
-                kinectHandle.InfraredTextureChanged += HandAnalysis;
-                break;
+        kinectHandle.OpenBody();
+        var useCl = false;
+        var useIr = false;
+        foreach (var inputMode in inputModes) {
+            switch (inputMode) {
+                case InputMode.Color:
+                    useCl = true;
+                    break;
+                case InputMode.Infrared:
+                    useIr = true;
+                    break;
+                case InputMode.Combined:
+                    useCl = true;
+                    useIr = true;
+                    break;
+            }
         }
+        if (useCl && useIr) {
+            cl = kinectHandle.Cl;
+            ir = kinectHandle.Ir;
+            ir.Changed += HandAnalysis;
+        }
+        else if (useCl) {
+            cl = kinectHandle.Cl;
+            cl.Changed += HandAnalysis;
+        }
+        else if (useIr) {
+            ir = kinectHandle.Ir;
+            ir.Changed += HandAnalysis;
+        }
+
         kinectHandle.BodiesChanged += OnKinectBodiesChange;
 
         Transform go;
-        go = transform.Find("Inspect0");
-        if (go != null)
-        {
-            go.GetComponent<InspectBaracudaInput>().source = hands[0].pipeline.HandRegionCropBuffer;
+        for (int i = 0; i < inputModes.Length; i++) {
+            go = transform.Find($"InspectLeft{i}");
+            if (go != null)
+            {
+                go.GetComponent<MeshRenderer>().material.mainTexture = hands[0].textures[i];
+            }
+            go = transform.Find($"InspectRight{i}");
+            if (go != null)
+            {
+                go.GetComponent<MeshRenderer>().material.mainTexture = hands[1].textures[i];
+            }
         }
-        go = transform.Find("Inspect1");
-        if (go != null)
-        {
-            go.GetComponent<InspectBaracudaInput>().source = hands[1].pipeline.HandRegionCropBuffer;
-        }
-        go = transform.Find("Inspect2");
-        if (go != null)
-        {
-            go.GetComponent<MeshRenderer>().material.mainTexture = hands[0].texture;
-        }
-        go = transform.Find("Inspect3");
-        if (go != null)
-        {
-            go.GetComponent<MeshRenderer>().material.mainTexture = hands[1].texture;
-        }
-    }
-
-
-    // From a kinect tracked position (relative to kinect camera)
-    // finds where it lands on the camera image in normalized coordinates
-    private static Vector4 BoundingBox(Vector2 fov, Vector3 pos)
-    {
-        pos.y *= -1;
-        var pos1 = pos - new Vector3(0.18f, 0.18f, 0f);
-        var pos2 = pos + new Vector3(0.18f, 0.18f, 0f);
-        var img1 = WorldToImage(fov, pos1);
-        var img2 = WorldToImage(fov, pos2);
-        return new Vector4(img1.x, img1.y, img2.x - img1.x, img2.y - img1.y);
-    }
-    private static Vector2 WorldToImage(Vector2 fov, Vector3 pos)
-    {
-        var nx = pos.x / pos.z;
-        var ny = pos.y / pos.z;
-        var hw = Mathf.Tan(fov.x / 2f);
-        var vw = Mathf.Tan(fov.y / 2f);
-        return new((nx / hw + 1f) / 2f, (ny / vw + 1f) / 2f);
     }
 
     void OnKinectBodiesChange()
@@ -142,11 +130,8 @@ public class AdvancedTracking : BodyPointsProvider
 
         foreach (var hand in hands)
         {
-            var pos = KinectHandle.ToVector3(body.Joints[hand.center]);
-            pos.z -= 0.06f;
-            hand.colorBox = BoundingBox(kinectHandle.ColorFov, pos + new Vector3(0.0465f, -0.015f, 0f));
-            hand.infraredBox = BoundingBox(kinectHandle.InfraredFov, pos);
-            var dif = KinectHandle.ToVector3(body.Joints[hand.wrist]) - (Vector3)hand.points[0];
+            hand.pos = body.Get(hand.center);
+            var dif = body.Get(hand.wrist) - (Vector3)hand.points[0];
             for (int i = 0; i < 21; i++)
             {
                 hand.points[i] += new Vector4(dif.x, dif.y, dif.z, 0f);
@@ -155,126 +140,140 @@ public class AdvancedTracking : BodyPointsProvider
         RaiseBodyPointsChanged();
     }
 
+    void DynamicConstrast(Texture texture) {
+        Assert.IsTrue(texture.width == 512);
+        Assert.IsTrue(texture.height == 512);
+    
+        // 256
+        minMaxShader.SetTexture(0, "input", texture);
+        minMaxShader.SetTexture(0, "output", minMax1);
+        minMaxShader.Dispatch(0, 256 / 8, 256 / 8, 1);
+
+        // 128
+        minMaxShader.SetTexture(0, "input", minMax1);
+        minMaxShader.SetTexture(0, "output", minMax2);
+        minMaxShader.Dispatch(0, 128 / 8, 128 / 8, 1);
+
+        // 64
+        minMaxShader.SetTexture(0, "input", minMax2);
+        minMaxShader.SetTexture(0, "output", minMax1);
+        minMaxShader.Dispatch(0, 64 / 8, 64 / 8, 1);
+
+        // 32
+        minMaxShader.SetTexture(0, "input", minMax1);
+        minMaxShader.SetTexture(0, "output", minMax2);
+        minMaxShader.Dispatch(0, 32 / 8, 32 / 8, 1);
+
+        // 16
+        minMaxShader.SetTexture(0, "input", minMax2);
+        minMaxShader.SetTexture(0, "output", minMax1);
+        minMaxShader.Dispatch(0, 16 / 8, 16 / 8, 1);
+
+        // 8
+        minMaxShader.SetTexture(0, "input", minMax1);
+        minMaxShader.SetTexture(0, "output", minMax2);
+        minMaxShader.Dispatch(0, 8 / 8, 8 / 8, 1);
+
+        // 4
+        minMaxShader.SetTexture(0, "input", minMax2);
+        minMaxShader.SetTexture(0, "output", minMax1);
+        minMaxShader.Dispatch(0, 1, 1, 1);
+
+        // 2
+        minMaxShader.SetTexture(0, "input", minMax1);
+        minMaxShader.SetTexture(0, "output", minMax2);
+        minMaxShader.Dispatch(0, 1, 1, 1);
+
+        // 1
+        minMaxShader.SetTexture(0, "input", minMax2);
+        minMaxShader.SetTexture(0, "output", minMax1);
+        minMaxShader.Dispatch(0, 1, 1, 1);
+
+        // apply dynamic contrast by dividing by the max value
+        dynamicContrastShader.SetTexture(0, "result", texture);
+        dynamicContrastShader.SetTexture(0, "max", minMax1);
+        dynamicContrastShader.Dispatch(0, 512 / 8, 512 / 8, 1);
+    }
+
     void HandAnalysis()
     {
+        hands[0].score = Mathf.Max(hands[0].score - 0.1f, 0.7f);
+        hands[1].score = Mathf.Max(hands[1].score - 0.1f, 0.7f);
         var body = kinectHandle.TrackedBody;
-        if (hands[0].pipeline.Busy || hands[0].pipeline.Busy || body == null) return;
+        if (body == null) return;
+        foreach (var hand in hands) {
+            foreach (var pipeline in hand.pipelines) {
+                if (pipeline.Busy) return;
+            }
+        }
 
-        foreach (var hand in hands)
-        {
-            if (inputMode != InputMode.Color)
-            {
-                // select the desired box
-                cropShader.SetVector("box", hand.infraredBox);
-                cropShader.SetTexture(0, "input", kinectHandle.InfraredTexture);
-                cropShader.SetTexture(0, "output", hand.texture);
-                cropShader.Dispatch(0, 512 / 8, 512 / 8, 1);
-
-                // now find what's the maximum value
-
-                // 256
-                minMaxShader.SetTexture(0, "input", hand.texture);
-                minMaxShader.SetTexture(0, "output", minMax1);
-                minMaxShader.Dispatch(0, 256 / 8, 256 / 8, 1);
-
-                // 128
-                minMaxShader.SetTexture(0, "input", minMax1);
-                minMaxShader.SetTexture(0, "output", minMax2);
-                minMaxShader.Dispatch(0, 128 / 8, 128 / 8, 1);
-
-                // 64
-                minMaxShader.SetTexture(0, "input", minMax2);
-                minMaxShader.SetTexture(0, "output", minMax1);
-                minMaxShader.Dispatch(0, 64 / 8, 64 / 8, 1);
-
-                // 32
-                minMaxShader.SetTexture(0, "input", minMax1);
-                minMaxShader.SetTexture(0, "output", minMax2);
-                minMaxShader.Dispatch(0, 32 / 8, 32 / 8, 1);
-
-                // 16
-                minMaxShader.SetTexture(0, "input", minMax2);
-                minMaxShader.SetTexture(0, "output", minMax1);
-                minMaxShader.Dispatch(0, 16 / 8, 16 / 8, 1);
-
-                // 8
-                minMaxShader.SetTexture(0, "input", minMax1);
-                minMaxShader.SetTexture(0, "output", minMax2);
-                minMaxShader.Dispatch(0, 8 / 8, 8 / 8, 1);
-
-                // 4
-                minMaxShader.SetTexture(0, "input", minMax2);
-                minMaxShader.SetTexture(0, "output", minMax1);
-                minMaxShader.Dispatch(0, 1, 1, 1);
-
-                // 2
-                minMaxShader.SetTexture(0, "input", minMax1);
-                minMaxShader.SetTexture(0, "output", minMax2);
-                minMaxShader.Dispatch(0, 1, 1, 1);
-
-                // 1
-                minMaxShader.SetTexture(0, "input", minMax2);
-                minMaxShader.SetTexture(0, "output", minMax1);
-                minMaxShader.Dispatch(0, 1, 1, 1);
-
-                // apply dynamic contrast by dividing by the max value
-                dynamicContrastShader.SetTexture(0, "result", hand.texture);
-                dynamicContrastShader.SetTexture(0, "max", minMax1);
-                dynamicContrastShader.Dispatch(0, 512 / 8, 512 / 8, 1);
-
-                if (inputMode == InputMode.Combined)
-                {
-                    colorizeShader.SetTexture(0, "color", kinectHandle.ColorTexture);
-                    colorizeShader.SetVector("box", hand.colorBox);
-                    colorizeShader.SetTexture(0, "result", hand.texture);
-                    colorizeShader.Dispatch(0, 512 / 8, 512 / 8, 1);
+        foreach (var hand in hands) {
+            for (int i = 0; i < inputModes.Length; i++) {
+                var mode = inputModes[i];
+                var pipeline = hand.pipelines[i];
+                var texture = hand.textures[i];
+                switch (mode) {
+                    case InputMode.Color:
+                        cl.Crop(hand.pos, 0.18f, texture);
+                        break;
+                    case InputMode.Infrared:
+                        ir.Crop(hand.pos, 0.18f, texture);
+                        DynamicConstrast(texture);
+                        break;
+                    case InputMode.Combined:
+                        ir.Crop(hand.pos, 0.18f, texture);
+                        DynamicConstrast(texture);
+                        colorizeShader.SetTexture(0, "color", cl.texture);
+                        colorizeShader.SetVector("box", cl.BoundingBox(hand.pos, 0.18f));
+                        colorizeShader.SetTexture(0, "result", texture);
+                        colorizeShader.Dispatch(0, 512 / 8, 512 / 8, 1);
+                        break;
                 }
-            }
-            else
-            {
-                // select the desired box
-                cropShader.SetVector("box", hand.colorBox);
-                cropShader.SetTexture(0, "input", kinectHandle.ColorTexture);
-                cropShader.SetTexture(0, "output", hand.texture);
-                cropShader.Dispatch(0, 512 / 8, 512 / 8, 1);
-            }
-
-            hand.pipeline.ProcessImage(hand.texture);
-
-            hand.pipeline.BodyPointsUpdatedEvent += () =>
-            {
-                if (hand.pipeline.Score < 0.7) return;
-                var h = hand.pipeline.Handedness;
-                if (hand.index == 0 ? (h > 0.8 && h < 1.2) : (h > -0.2 && h < 0.2))
+                pipeline.ProcessImage(texture);
+                pipeline.BodyPointsUpdatedEvent += () =>
                 {
-                    var ref1 = hand.pipeline.GetWrist;
-                    var ref2 = hand.pipeline.GetIndex1;
-                    var dist = Vector3.Distance(ref1, ref2);
-                    if (dist > 0.1f && dist < 4f)
+                    if (pipeline.Score <= hand.score) return;
+                    var h = pipeline.Handedness;
+                    if (hand.index == 0 ? (h > 0.8 && h < 1.2) : (h > -0.2 && h < 0.2))
                     {
-                        var scale = 0.1f / dist;
-                        var wristAbs = KinectHandle.ToVector3(body.Joints[hand.wrist]);
-                        var wristRel = hand.pipeline.GetWrist;
-                        for (int i = 0; i < 21; i++)
+                        hand.score = pipeline.Score;
+                        Debug.Log($"Tracking: Mode {mode}");
+                        var ref1 = pipeline.GetWrist;
+                        var ref2 = pipeline.GetIndex1;
+                        var dist = Vector3.Distance(ref1, ref2);
+                        if (dist > 0.1f && dist < 4f)
                         {
-                            var posRel = (Vector3)hand.pipeline.HandPoints[i];
-                            var point = (posRel - wristRel) * scale + wristAbs;
-                            hand.points[i] = new Vector4(point.x, point.y, point.z, 1f);
+                            var scale = 0.1f / dist;
+                            var wristAbs = body.Get(hand.wrist);
+                            var wristRel = pipeline.GetWrist;
+                            for (int i = 0; i < 21; i++)
+                            {
+                                var posRel = (Vector3)pipeline.HandPoints[i];
+                                var point = (posRel - wristRel) * scale + wristAbs;
+                                hand.points[i] = Tracked(point);
+                            }
+                            RaiseBodyPointsChanged();
                         }
-                        RaiseBodyPointsChanged();
                     }
-                }
-            };
+                };
+            }
         }
     }
 
     void OnDestroy()
     {
         kinectHandle.BodiesChanged -= OnKinectBodiesChange;
-        kinectHandle.ColorTextureChanged -= HandAnalysis;
-        kinectHandle.InfraredTextureChanged -= HandAnalysis;
-        hands[0].pipeline.Dispose();
-        hands[1].pipeline.Dispose();
+        if (cl != null) {
+            cl.Changed -= HandAnalysis;
+        }
+        if (ir != null) {
+            ir.Changed -= HandAnalysis;
+        }
+        foreach (var hand in hands) {
+            foreach (var pipeline in hand.pipelines) {
+                pipeline.Dispose();
+            }
+        }
     }
 
     public override Vector4 GetBodyPoint(BodyPoint key)
@@ -288,8 +287,7 @@ public class AdvancedTracking : BodyPointsProvider
         {
             var body = kinectHandle.TrackedBody;
             if (body == null) return absent;
-            var pos = body.Joints[passThrough[at]].Position;
-            return new Vector4(pos.X, pos.Y, pos.Z, 1f);
+            return Tracked(body.Get(passThrough[at]));
         }
         else
         {

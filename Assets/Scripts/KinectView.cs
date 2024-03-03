@@ -1,8 +1,7 @@
 using UnityEngine;
 using UnityEngine.Assertions;
 
-/// Displayrs on a quad, the video feed from the kinect, either from its color or infrared camera
-public class KinectView : MonoBehaviour
+public class KinectColorView : MonoBehaviour
 {
     [SerializeField] KinectHandle kinect;
     [SerializeField] SourceType sourceType = SourceType.Color;

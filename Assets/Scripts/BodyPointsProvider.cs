@@ -12,6 +12,8 @@ public abstract class BodyPointsProvider: MonoBehaviour {
     public static bool IsGuessed(Vector4 v) => v.w == 2f;
     public static bool IsInvalid(Vector4 v) => v.w == 3f;
     public static Vector4 absent = new(0f, 0f, 0f, 0f);
+    public static Vector4 Tracked(Vector3 v) => new (v.x, v.y, v.z, 1f);
+    public static Vector4 Guessed(Vector3 v) => new (v.x, v.y, v.z, 2f);
     public static Vector4 invalid = new(0f, 0f, 0f, 3f);
 
     public abstract Vector4 GetBodyPoint(BodyPoint bodyPoint);

@@ -2,12 +2,10 @@ using UnityEngine;
 using UnityEngine.UI;
 using Klak.TestTools;
 using MediaPipe.HandPose;
+using UnityEngine.Assertions;
 
 public sealed class HandVisualizer : MonoBehaviour
 {
-    #region Editable attributes
-
-    // [SerializeField] ImageSource _source = null;
     [SerializeField] KinectHandle kinect;
     [Space]
     [SerializeField] ResourceSet _resources = null;
@@ -17,40 +15,20 @@ public sealed class HandVisualizer : MonoBehaviour
     [SerializeField] RawImage _mainUI = null;
     [SerializeField] RawImage _cropUI = null;
 
-    #endregion
-
-    #region Private members
-
     HandPipeline _pipeline;
     (Material keys, Material region) _material;
     RenderTexture texture;
-
-    #endregion
-
-    #region MonoBehaviour implementation
+    KinectHandle.Source color;
 
     void Start()
     {
-        texture = new RenderTexture(1920, 1080, 0) {enableRandomWrite = true};
+        texture = new RenderTexture(1920, 1080, 0) { enableRandomWrite = true };
         _pipeline = new HandPipeline(_resources);
-        _material = (new Material(_keyPointShader),
-                     new Material(_handRegionShader));
-
-        // Material initial setup
+        _material = (new Material(_keyPointShader), new Material(_handRegionShader));
         _material.keys.SetBuffer("_KeyPoints", _pipeline.KeyPointBuffer);
         _material.region.SetBuffer("_Image", _pipeline.HandRegionCropBuffer);
-
-        // UI setup
         _cropUI.material = _material.region;
-
-        kinect.ColorTextureChanged += () => {
-            kinect.FlippedColorTexture(texture);
-            _pipeline.ProcessImage(texture);
-
-            // UI update
-            _mainUI.texture = texture;
-            _cropUI.texture = texture;
-        };
+        color = kinect.Cl;
     }
 
     void OnDestroy()
@@ -60,26 +38,19 @@ public sealed class HandVisualizer : MonoBehaviour
         Destroy(_material.region);
     }
 
-    // void LateUpdate()
-    // {
-    //     // Feed the input image to the Hand pose pipeline.
-    //     _pipeline.ProcessImage(_source.Texture);
-
-    //     // UI update
-    //     _mainUI.texture = _source.Texture;
-    //     _cropUI.texture = _source.Texture;
-    // }
+    void LateUpdate()
+    {
+        color.Flip(texture);
+        _pipeline.ProcessImage(texture);
+        _mainUI.texture = texture;
+        _cropUI.texture = texture;
+    }
 
     void OnRenderObject()
     {
-        // Key point circles
         _material.keys.SetPass(0);
         Graphics.DrawProceduralNow(MeshTopology.Triangles, 96, 21);
-
-        // Skeleton lines
         _material.keys.SetPass(1);
         Graphics.DrawProceduralNow(MeshTopology.Lines, 2, 4 * 5 + 1);
     }
-
-    #endregion
 }
