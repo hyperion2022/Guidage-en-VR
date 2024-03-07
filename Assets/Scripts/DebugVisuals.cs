@@ -1,41 +1,70 @@
 using UnityEngine;
 
-public class DebugVisuals
+public class Visual
 {
-    public static GameObject CreateSphere(Transform parent, float radius, Color color, string name = "Sphere") {
-        var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        sphere.transform.SetParent(parent);
-        sphere.name = name;
-        sphere.transform.localScale = Vector3.one * radius;
-        var m = sphere.GetComponent<MeshRenderer>().material;
-        m.SetFloat("_Glossiness", 0f);
-        m.color = color;
-        return sphere;
-    }
-    public static void SphereAt(GameObject go, Vector3 pos) {
-        go.transform.localPosition = pos;
-    }
+    public class Sphere
+    {
+        private readonly GameObject go;
 
-    public static GameObject CreateCylinder(Transform parent, float radius, Color color, string name = "Cylinder") {
-        var cylinder = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        cylinder.transform.SetParent(parent);
-        cylinder.name = name;
-        cylinder.transform.localScale = Vector3.one * radius;
-        var m = cylinder.GetComponent<MeshRenderer>().material;
-        m.SetFloat("_Glossiness", 0f);
-        m.color = color;
-        return cylinder;
-    }
+        public Sphere(Transform parent, float radius, Color color, string name = "Sphere")
+        {
+            go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            go.transform.SetParent(parent);
+            go.name = name;
+            go.transform.localScale = Vector3.one * radius;
+            var m = go.GetComponent<MeshRenderer>().material;
+            m.SetFloat("_Glossiness", 0f);
+            m.color = color;
+        }
 
-    public static void CylinderBetween(GameObject go, Vector3 pos1, Vector3 pos2) {
-        var distance = Vector3.Distance(pos1, pos2);
-        go.transform.localPosition = pos1;
-        go.transform.LookAt(go.transform.parent.TransformPoint(pos2));
-        go.transform.Rotate(new(90f, 0f, 0f));
-        go.transform.Translate(new(0f, distance / 2f, 0f));
-        go.transform.localScale = new(go.transform.localScale.x, distance / 2f, go.transform.localScale.z);
+        public Vector3 At
+        {
+            set { go.transform.localPosition = value; }
+        }
+
+        public Color Color
+        {
+            set { go.GetComponent<Renderer>().material.color = value; }
+        }
     }
-    public static void CylinderToward(GameObject go, Vector3 pos1, Vector3 pos2) {
-        CylinderBetween(go, pos1, 60f * (pos2 - pos1) + pos2);
+    public class Cylinder
+    {
+        private readonly GameObject go;
+
+        public Cylinder(Transform parent, float radius, Color color, string name = "Cylinder")
+        {
+            go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            go.transform.SetParent(parent);
+            go.name = name;
+            go.transform.localScale = Vector3.one * radius;
+            var m = go.GetComponent<MeshRenderer>().material;
+            m.SetFloat("_Glossiness", 0f);
+            m.color = color;
+        }
+
+        public (Vector3, Vector3) Between
+        {
+            set
+            {
+                var (pos1, pos2) = value;
+                var distance = Vector3.Distance(pos1, pos2);
+                go.transform.localPosition = pos1;
+                go.transform.LookAt(go.transform.parent.TransformPoint(pos2));
+                go.transform.Rotate(new(90f, 0f, 0f));
+                go.transform.Translate(new(0f, distance / 2f, 0f));
+                go.transform.localScale = new(go.transform.localScale.x, distance / 2f, go.transform.localScale.z);
+            }
+        }
+
+        public (Vector3, Vector3) Toward {
+            set {
+                var (pos1, pos2) = value;
+                Between = (pos1, 60f * (pos2 - pos1) + pos2);
+            }
+        }
+        public Color Color
+        {
+            set { go.GetComponent<Renderer>().material.color = value; }
+        }
     }
 }

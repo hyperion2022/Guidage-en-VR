@@ -7,10 +7,9 @@ using UnityEngine.Assertions;
 
 public class AdvancedTracking : BodyPointsProvider
 {
-    [SerializeField] InputMode[] inputModes = {InputMode.Color};
+    [SerializeField] InputMode[] inputModes = { InputMode.Color };
     [SerializeField] KinectHandle kinectHandle;
     [SerializeField] ResourceSet resourceSet;
-    // [SerializeField] ComputeShader cropShader;
     [SerializeField] ComputeShader minMaxShader;
     [SerializeField] ComputeShader dynamicContrastShader;
     [SerializeField] ComputeShader colorizeShader;
@@ -78,8 +77,10 @@ public class AdvancedTracking : BodyPointsProvider
         kinectHandle.OpenBody();
         var useCl = false;
         var useIr = false;
-        foreach (var inputMode in inputModes) {
-            switch (inputMode) {
+        foreach (var inputMode in inputModes)
+        {
+            switch (inputMode)
+            {
                 case InputMode.Color:
                     useCl = true;
                     break;
@@ -92,16 +93,19 @@ public class AdvancedTracking : BodyPointsProvider
                     break;
             }
         }
-        if (useCl && useIr) {
+        if (useCl && useIr)
+        {
             cl = kinectHandle.Cl;
             ir = kinectHandle.Ir;
             ir.Changed += HandAnalysis;
         }
-        else if (useCl) {
+        else if (useCl)
+        {
             cl = kinectHandle.Cl;
             cl.Changed += HandAnalysis;
         }
-        else if (useIr) {
+        else if (useIr)
+        {
             ir = kinectHandle.Ir;
             ir.Changed += HandAnalysis;
         }
@@ -109,7 +113,8 @@ public class AdvancedTracking : BodyPointsProvider
         kinectHandle.BodiesChanged += OnKinectBodiesChange;
 
         Transform go;
-        for (int i = 0; i < inputModes.Length; i++) {
+        for (int i = 0; i < inputModes.Length; i++)
+        {
             go = transform.Find($"InspectLeft{i}");
             if (go != null)
             {
@@ -130,20 +135,26 @@ public class AdvancedTracking : BodyPointsProvider
 
         foreach (var hand in hands)
         {
-            hand.pos = body.Get(hand.center);
-            var dif = body.Get(hand.wrist) - (Vector3)hand.points[0];
-            for (int i = 0; i < 21; i++)
+            var center = body.GetAware(hand.center);
+            var wrist = body.GetAware(hand.wrist);
+            if (IsTracked(center) && IsTracked(wrist))
             {
-                hand.points[i] += new Vector4(dif.x, dif.y, dif.z, 0f);
+                hand.pos = (Vector3)center;
+                var dif = (Vector3)wrist - (Vector3)hand.points[0];
+                for (int i = 0; i < 21; i++)
+                {
+                    hand.points[i] += new Vector4(dif.x, dif.y, dif.z, 0f);
+                }
             }
         }
         RaiseBodyPointsChanged();
     }
 
-    void DynamicConstrast(Texture texture) {
+    void DynamicConstrast(Texture texture)
+    {
         Assert.IsTrue(texture.width == 512);
         Assert.IsTrue(texture.height == 512);
-    
+
         // 256
         minMaxShader.SetTexture(0, "input", texture);
         minMaxShader.SetTexture(0, "output", minMax1);
@@ -201,18 +212,23 @@ public class AdvancedTracking : BodyPointsProvider
         hands[1].score = Mathf.Max(hands[1].score - 0.1f, 0.7f);
         var body = kinectHandle.TrackedBody;
         if (body == null) return;
-        foreach (var hand in hands) {
-            foreach (var pipeline in hand.pipelines) {
+        foreach (var hand in hands)
+        {
+            foreach (var pipeline in hand.pipelines)
+            {
                 if (pipeline.Busy) return;
             }
         }
 
-        foreach (var hand in hands) {
-            for (int i = 0; i < inputModes.Length; i++) {
+        foreach (var hand in hands)
+        {
+            for (int i = 0; i < inputModes.Length; i++)
+            {
                 var mode = inputModes[i];
                 var pipeline = hand.pipelines[i];
                 var texture = hand.textures[i];
-                switch (mode) {
+                switch (mode)
+                {
                     case InputMode.Color:
                         cl.Crop(hand.pos, 0.18f, texture);
                         break;
@@ -263,14 +279,18 @@ public class AdvancedTracking : BodyPointsProvider
     void OnDestroy()
     {
         kinectHandle.BodiesChanged -= OnKinectBodiesChange;
-        if (cl != null) {
+        if (cl != null)
+        {
             cl.Changed -= HandAnalysis;
         }
-        if (ir != null) {
+        if (ir != null)
+        {
             ir.Changed -= HandAnalysis;
         }
-        foreach (var hand in hands) {
-            foreach (var pipeline in hand.pipelines) {
+        foreach (var hand in hands)
+        {
+            foreach (var pipeline in hand.pipelines)
+            {
                 pipeline.Dispose();
             }
         }

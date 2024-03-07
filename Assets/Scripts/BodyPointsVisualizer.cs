@@ -10,8 +10,8 @@ public class BodyPointsVisualizer : MonoBehaviour
     BodyPointsProvider bodyPointsProvider;
 
     private bool updated;
-    (BodyPoint, GameObject)[] spheres;
-    (BodyPoint, BodyPoint, GameObject)[] cylinders;
+    (BodyPoint, Visual.Sphere)[] spheres;
+    (BodyPoint, BodyPoint, Visual.Cylinder)[] cylinders;
 
     static readonly Dictionary<(BodyPoint p1, BodyPoint p2), float> bones = new()
     {
@@ -129,9 +129,9 @@ public class BodyPointsVisualizer : MonoBehaviour
         Assert.IsNotNull(bodyPointsProvider);
         updated = true;
         spheres = bodyPointsProvider.AvailablePoints.Select(k =>
-            (k, DebugVisuals.CreateSphere(transform, nodes.GetValueOrDefault(k, 0.05f), Color.white, k.ToString()))
+            (k, new Visual.Sphere(transform, nodes.GetValueOrDefault(k, 0.05f), Color.white, k.ToString()))
         ).ToArray();
-        var list = new List<(BodyPoint, BodyPoint, GameObject)>();
+        var list = new List<(BodyPoint, BodyPoint, Visual.Cylinder)>();
         foreach (var (k, v) in bones)
         {
             if (
@@ -139,14 +139,14 @@ public class BodyPointsVisualizer : MonoBehaviour
                 bodyPointsProvider.AvailablePoints.Contains(k.p2)
             )
             {
-                list.Add((k.p1, k.p2, DebugVisuals.CreateCylinder(transform, v, Color.white)));
+                list.Add((k.p1, k.p2, new(transform, v, Color.white)));
             }
         }
         cylinders = list.ToArray();
         bodyPointsProvider.BodyPointsChanged += () => updated = true;
     }
 
-    private static Color trackingStateToColor(float ts)
+    private static Color TrackingStateToColor(float ts)
     {
         return ts switch
         {
@@ -163,15 +163,17 @@ public class BodyPointsVisualizer : MonoBehaviour
             foreach (var (k, go) in spheres)
             {
                 var v = bodyPointsProvider.GetBodyPoint(k);
-                DebugVisuals.SphereAt(go, v);
-                go.GetComponent<Renderer>().material.color = trackingStateToColor(v.w);
+                go.At = v;
+                go.Color = TrackingStateToColor(v.w);
             }
             foreach (var (k1, k2, go) in cylinders)
             {
                 var v1 = bodyPointsProvider.GetBodyPoint(k1);
                 var v2 = bodyPointsProvider.GetBodyPoint(k2);
-                DebugVisuals.CylinderBetween(go, v1, v2);
-                go.GetComponent<Renderer>().material.color = trackingStateToColor(v1.w);
+                if (BodyPointsProvider.IsTracked(v1) && BodyPointsProvider.IsTracked(v2)) {
+                    go.Between = (v1, v2);
+                }
+                go.Color = TrackingStateToColor(v1.w);
             }
         }
     }

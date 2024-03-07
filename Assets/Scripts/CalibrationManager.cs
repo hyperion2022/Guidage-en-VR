@@ -24,6 +24,12 @@ public class CalibrationManager : MonoBehaviour
 
     private string message;
 
+    private static readonly int TL = 0;// Top Left
+    private static readonly int TR = 1;// Top Right
+    private static readonly int BL = 2;// Bottom Left
+    private static readonly int BR = 3;// Bottom Right
+    private static readonly int CL = 4;// Center Left
+    private static readonly int CR = 5;// Center Right
     private (Vector3 head, Vector3 index)[] bodyPoints;
     private Vector3[] screenPoints;
     private (int i, Vector4 head, Vector4 index) cumulated;
@@ -64,7 +70,7 @@ public class CalibrationManager : MonoBehaviour
         cumulated.i += 1;
         cumulated.head += head;
         cumulated.index += index;
-        
+
         // if all points cumulated
         if (cumulated.i == 10)
         {
@@ -107,15 +113,10 @@ public class CalibrationManager : MonoBehaviour
             {
                 Debug.Log("Calibration Warning: The body is not properly tracked");
             }
-            GameObject go;
-            go = DebugVisuals.CreateSphere(transform, 0.02f, Color.green, $"Head {counter}");
-            DebugVisuals.SphereAt(go, points.head);
-            go = DebugVisuals.CreateSphere(transform, 0.02f, Color.blue, $"Index {counter}");
-            DebugVisuals.SphereAt(go, points.index);
-            go = DebugVisuals.CreateCylinder(transform, 0.01f, Color.blue, $"Line {counter}");
-            DebugVisuals.CylinderBetween(go, points.head, points.index);
-            go = DebugVisuals.CreateCylinder(transform, 0.005f, Color.yellow, $"Line {counter}");
-            DebugVisuals.CylinderToward(go, points.head, points.index);
+            new Visual.Sphere(transform, 0.02f, Color.green, $"Head {counter}") { At = points.head };
+            new Visual.Sphere(transform, 0.02f, Color.blue, $"Index {counter}") { At = points.index };
+            new Visual.Cylinder(transform, 0.01f, Color.blue, $"Line {counter}") { Between = (points.head, points.index) };
+            new Visual.Cylinder(transform, 0.005f, Color.yellow, $"Line {counter}") { Between = (points.head, points.index) };
         }
         // if we validate one of the 4 corners
         if (counter > 0 && counter <= 4)
@@ -145,9 +146,15 @@ public class CalibrationManager : MonoBehaviour
                 {
                     UI.SetActive(false); // d�sactiver l'interface de calibration
                     CornerCoordsFromBodyPoints(bodyPoints);
-                    File.WriteAllText("screenCorners.json", JsonConvert.SerializeObject(
-                        screenPoints.Select(v => new float[] { v.x, v.y, v.z }).ToArray())
-                    );
+                    var p = screenPoints.Select(v => new[] { v.x, v.y, v.z }).ToArray();
+                    var json = JsonConvert.SerializeObject(new Calibration{
+                        score = 0.5f,
+                        tl = p[TL],
+                        tr = p[TR],
+                        bl = p[BL],
+                    });
+                    Debug.Log($"Saving {screenPoints[TL]}");
+                    File.WriteAllText("calibration.json", json);
                     detectionManager.SetActive(true);
                 }
                 break;
@@ -157,95 +164,79 @@ public class CalibrationManager : MonoBehaviour
         instructionText.text = message;
     }
 
+    [System.Serializable]
+    public struct Calibration {
+        public float score;
+        public float[] tl;
+        public float[] tr;
+        public float[] bl;
+
+        public static Vector3 ToVector3(float[] point) => new(point[0], point[1], point[2]);
+    }
+
     private void CornerCoordsFromBodyPoints((Vector3 head, Vector3 index)[] bodyPoints)
     {
-        if (bodyPoints.Length != 6)
-        {
-            Debug.Log("bodyPoints array has to be of length 6!");
-        }
+        Assert.IsTrue(bodyPoints.Length == 6);
+        var tl = bodyPoints[TL];// top left
+        var tr = bodyPoints[TR];// top right
+        var bl = bodyPoints[BL];// bottom left
+        var br = bodyPoints[BR];// bottom right
+        var cl = bodyPoints[CL];// center left
+        var cr = bodyPoints[CR];// center right
+        // average head position
+        var head = (tl.head + tr.head + bl.head + br.head) / 4f;
+        // center point on screen
+        var (centered, center1, center2) = EdgeOnEdgeIntersection(cl.head, cr.head, cl.index - cl.head, cr.index - cr.head);
+        if (!centered) Debug.Log($"Calibration: Lines are parralel");
+        var center = (center1 + center2) / 2f;
+        // screen corners where pointing intersect with plane passing through center and perpendicular to head direction
+        // (considering the screen as beeing perpendicular is not necessarly covering all use cases, like in multi monitors,
+        // where the pointing screen might be on one side and not necessarly properly oriented toward the user)
+        var (_, ptl) = EdgeOnPlaneIntersection(tl.head, tl.index - tl.head, center, head - center);
+        var (_, ptr) = EdgeOnPlaneIntersection(tr.head, tr.index - tr.head, center, head - center);
+        var (_, pbl) = EdgeOnPlaneIntersection(bl.head, bl.index - bl.head, center, head - center);
+        var (_, pbr) = EdgeOnPlaneIntersection(br.head, br.index - br.head, center, head - center);// an extra corner that can be used to compute a calibration score
+        screenPoints[TL] = ptl;
+        screenPoints[TR] = ptr;
+        screenPoints[BL] = pbl;
 
-        // prendre en compte la 4e valeur
-        // factoriser les points choisis
-        Vector4 dirLeftCenter = bodyPoints[4].index - bodyPoints[4].head;
-        Vector4 dirRightCenter = bodyPoints[5].index - bodyPoints[5].head;
-        Vector3 p1 = new Vector3(bodyPoints[4].head.x, bodyPoints[4].head.y, bodyPoints[4].head.z);
-        Vector3 p2 = new Vector3(bodyPoints[5].head.x, bodyPoints[5].head.y, bodyPoints[5].head.z);
-        Vector3 A = new Vector3(dirLeftCenter.x, dirLeftCenter.y, dirLeftCenter.z);
-        Vector3 B = new Vector3(dirRightCenter.x, dirRightCenter.y, dirRightCenter.z);
-        Vector3 centerPoint = intersectionPoint(p1, p2, A, B);
+        // visual cues to debug and see what's happening
+        new Visual.Sphere(transform, 0.02f, Color.green, "Screen Center") { At = center };
+        new Visual.Sphere(transform, 0.02f, Color.white, "Screen Top Left") { At = ptl };
+        new Visual.Sphere(transform, 0.02f, Color.white, "Screen Top Right") { At = ptr };
+        new Visual.Sphere(transform, 0.02f, Color.white, "Screen Bottom Left") { At = pbl };
+        new Visual.Sphere(transform, 0.02f, Color.green, "Screen Bottom Right") { At = pbr };
+        new Visual.Sphere(transform, 0.02f, Color.cyan, "Kinect Camera") { At = Vector3.zero };
 
-        // 3 points forment un plan/rectangle, le 4e peut sortir de ce plan � cause d'impr�cisions de calcul
-        Vector3 cornerUL = pointAtZ(bodyPoints[0].head, bodyPoints[0].index, centerPoint.z);
-        Vector3 cornerUR = pointAtZ(bodyPoints[1].head, bodyPoints[1].index, centerPoint.z);
-        Vector3 cornerLL = pointAtZ(bodyPoints[2].head, bodyPoints[2].index, centerPoint.z);
-        Vector3 cornerLR = cornerUL + (cornerUR - cornerUL) + (cornerLL - cornerUL);
-
-        // sortie: rectangle (3 points)
-        screenPoints[0] = cornerUL;
-        screenPoints[1] = cornerUR;
-        screenPoints[2] = cornerLL;
-
-        Debug.Log(screenPoints[0]);
-        Debug.Log(screenPoints[1]);
-        Debug.Log(screenPoints[2]);
-
-        GameObject go;
-        go = DebugVisuals.CreateSphere(transform, 0.02f, Color.green, "Screen UL");
-        DebugVisuals.SphereAt(go, centerPoint);
-        go = DebugVisuals.CreateSphere(transform, 0.02f, Color.white, "Screen UL");
-        DebugVisuals.SphereAt(go, cornerUL);
-        go = DebugVisuals.CreateSphere(transform, 0.02f, Color.white, "Screen UR");
-        DebugVisuals.SphereAt(go, cornerUR);
-        go = DebugVisuals.CreateSphere(transform, 0.02f, Color.white, "Screen LL");
-        DebugVisuals.SphereAt(go, cornerLL);
-        go = DebugVisuals.CreateSphere(transform, 0.02f, Color.cyan, "Kinect Camera");
-        DebugVisuals.SphereAt(go, Vector3.zero);
-        go = DebugVisuals.CreateSphere(transform, 0.02f, Color.green, "Screen LR");
-        DebugVisuals.SphereAt(go, cornerLR);
-
-        go = DebugVisuals.CreateCylinder(transform, 0.01f, Color.red, $"Line {counter}");
-        DebugVisuals.CylinderBetween(go, cornerUL, cornerUR);
-        go = DebugVisuals.CreateCylinder(transform, 0.01f, Color.red, $"Line {counter}");
-        DebugVisuals.CylinderBetween(go, cornerUR, cornerLR);
-        go = DebugVisuals.CreateCylinder(transform, 0.01f, Color.red, $"Line {counter}");
-        DebugVisuals.CylinderBetween(go, cornerLR, cornerLL);
-        go = DebugVisuals.CreateCylinder(transform, 0.01f, Color.red, $"Line {counter}");
-        DebugVisuals.CylinderBetween(go, cornerLL, cornerUL);
+        new Visual.Cylinder(transform, 0.01f, Color.red, $"Screen Top") { Between = (ptl, ptr) };
+        new Visual.Cylinder(transform, 0.01f, Color.red, $"Screen Right") { Between = (ptr, pbr) };
+        new Visual.Cylinder(transform, 0.01f, Color.red, $"Screen Bottom") { Between = (pbr, pbl) };
+        new Visual.Cylinder(transform, 0.01f, Color.red, $"Screen Left") { Between = (pbl, ptl) };
     }
 
-    // point at depth = z al    
-    private Vector3 pointAtZ(Vector3 p1, Vector3 A, float z)
+    // For the given line (o + tv) and the given plane (p point on the plane, n the normal vector)
+    // returns the point where the two intersect, `false` if the line is perpendicular to the normal
+    public static (bool, Vector3) EdgeOnPlaneIntersection(Vector3 o, Vector3 v, Vector3 p, Vector3 n)
     {
-        Vector3 direction = A - p1;
-        float t = (z - p1.z) / direction.z;
-        Vector3 point = p1 + t * direction;
-        return point;
+        var dot = Vector3.Dot(v, n);
+        if (dot == 0f) return (false, Vector3.zero);
+        return (true, o + Vector3.Dot(n, p - o) / dot * v);
     }
 
-    // intersection point between two vectors given as base point + direction
-    private Vector3 intersectionPoint(Vector3 p1, Vector3 p2, Vector3 A, Vector3 B)
+    // For 2 given lines (o + tv), finds the closest points on those lines.
+    // If the two line are parallel, returns `false`.
+    private static (bool, Vector3, Vector3) EdgeOnEdgeIntersection(Vector3 o1, Vector3 o2, Vector3 v1, Vector3 v2)
     {
-        // code generated by chatGPT
-        float t, s;
-        Vector3 intersectionPoint = Vector3.zero;
-
-        Vector3 crossProduct = Vector3.Cross(A, -B);
-        float denominator = crossProduct.magnitude * crossProduct.magnitude;
-
-        if (denominator != 0)
-        {
-            Vector3 difference = p2 - p1;
-
-            t = Vector3.Dot(Vector3.Cross(difference, -B), crossProduct) / denominator;
-            s = Vector3.Dot(Vector3.Cross(A, difference), crossProduct) / denominator;
-
-            intersectionPoint = p1 + t * A;
-        }
-        else
-        {
-            Debug.Log("Lines are parallel!");
-        }
-
-        return intersectionPoint;
+        // It assumes, the shortest segment connecting 2 lines, must be perpendicular to both.
+        var c = new Matrix4x4(v1, v2, Vector4.zero, Vector4.zero);
+        var a = c.transpose * c;
+        // The matrix should be 2x2, but as Unity only provides 4x4,
+        // we have to introduce identity values at Z and W, if we want the matrix to be inversible
+        a[2, 2] = 1f;
+        a[3, 3] = 1f;
+        // it's also important to truncate to vector2, because the extra Z and W dimensions introduce undesired values
+        var t = a.inverse * (Vector2)(c.transpose * (o1 - o2));
+        // now `t` contains [-t1, t2, _, _]
+        return (a.determinant != 0f, o1 - t.x * v1, o2 + t.y * v2);
     }
 }
