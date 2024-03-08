@@ -9,10 +9,12 @@ using System;
 
 public class CalibrationManager : MonoBehaviour
 {
+    [SerializeField] int cumulate = 10;
     [SerializeField] BodyPointsProvider bodyPointsProvider;
     [SerializeField] GameObject detectionManager;
     [SerializeField] GameObject UI;
     [SerializeField] UnityEngine.UI.Button button;
+    [SerializeField] UnityEngine.UI.Text instructions;
     [Space]
     [SerializeField] GameObject targetTopLeft;
     [SerializeField] GameObject targetTopRight;
@@ -32,6 +34,7 @@ public class CalibrationManager : MonoBehaviour
     }
     private enum State
     {
+        Init,
         Wait,
         Accu,
         Finished,
@@ -40,6 +43,7 @@ public class CalibrationManager : MonoBehaviour
 
     private Dictionary<Point, (Vector3 head, Vector3 index)> bodyPoints;
     private Vector3[] screenPoints;
+
     private (int i, Vector3 head, Vector3 index) cumulated;
 
     private static Point[] points = { Point.TopLeft, Point.TopRight, Point.BottomLeft, Point.BottomRight, Point.CenterLeft, Point.CenterRight };
@@ -63,14 +67,19 @@ public class CalibrationManager : MonoBehaviour
         bodyPoints = points.ToDictionary(k => k, _ => (Vector3.zero, Vector3.zero));
         screenPoints = new Vector3[3];
 
-        state = (State.Wait, Point.TopLeft);
+        state = (State.Init, Point.TopLeft);
         bodyPointsProvider.BodyPointsChanged += Accumulate;
-        SetVisualTarget();
     }
 
     private void Accumulate()
     {
-        if (state.state == State.Accu) {
+        if (state.state == State.Init) {
+            state = (State.Wait, Point.TopLeft);
+            button.interactable = true;
+            SetVisualTarget();
+            instructions.text = "Point with your index toward the center of the blue target\nValidate (press space) and stay still until the target disapear";
+        }
+        else if (state.state == State.Accu) {
             var head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
             var index = bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
             // ignore if not properly tracked
@@ -81,10 +90,10 @@ public class CalibrationManager : MonoBehaviour
             cumulated.head += (Vector3)head;
             cumulated.index += (Vector3)index;
             Targets[(int)state.point].transform.localScale = TargetScale() * Vector3.one;
-            if (cumulated.i == 10)
+            if (cumulated.i == cumulate)
             {
-                cumulated.head /= 10f;
-                cumulated.index /= 10f;
+                cumulated.head /= cumulate;
+                cumulated.index /= cumulate;
 
                 // 3d visual cues for debug purposes
                 new Visual.Sphere(transform, 0.02f, Color.green, $"Head {state.point}") { At = cumulated.head };
@@ -134,7 +143,7 @@ public class CalibrationManager : MonoBehaviour
 
     private float TargetScale()
     {
-        return 2f * (1f - cumulated.i / 9f);
+        return 1.8f * (1f - cumulated.i / (float)(cumulate - 1));
     }
 
     private void SetVisualTarget()
@@ -149,7 +158,9 @@ public class CalibrationManager : MonoBehaviour
         if (state.state == State.Wait) {
             Targets[(int)state.point].transform.localScale = (TargetScale() + 0.2f * Mathf.Sin(Time.timeSinceLevelLoad * 4f)) * Vector3.one;
         }
-        if (Input.GetKeyDown(KeyCode.Space)) UpdateCorner();
+        if (button.interactable && Input.GetKeyDown(KeyCode.Space)) {
+            UpdateCorner();
+        }
     }
     public void UpdateCorner()
     {
