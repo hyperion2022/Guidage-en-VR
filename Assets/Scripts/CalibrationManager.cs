@@ -1,171 +1,171 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics.Tracing;
 using System.Linq;
-using UnityEditor.VersionControl;
 using UnityEngine;
-using UnityEngine.UI;
 using Newtonsoft.Json;
 using static BodyPointsProvider;
 using System.IO;
 using UnityEngine.Assertions;
+using System.Collections.Generic;
+using System;
 
 public class CalibrationManager : MonoBehaviour
 {
-    [SerializeField]
-    BodyPointsProvider bodyPointsProvider;
-    [SerializeField]
-    GameObject detectionManager;
-    public GameObject[] corners;
-    public GameObject center;
-    public Text instructionText;
-    public GameObject UI;
-    private int counter;
+    [SerializeField] BodyPointsProvider bodyPointsProvider;
+    [SerializeField] GameObject detectionManager;
+    [SerializeField] GameObject UI;
+    [SerializeField] UnityEngine.UI.Button button;
+    [Space]
+    [SerializeField] GameObject targetTopLeft;
+    [SerializeField] GameObject targetTopRight;
+    [SerializeField] GameObject targetBottomLeft;
+    [SerializeField] GameObject targetBottomRight;
+    [SerializeField] GameObject targetCenterLeft;
+    [SerializeField] GameObject targetCenterRight;
 
-    private string message;
+    private enum Point
+    {
+        TopLeft = 0,
+        TopRight = 1,
+        BottomLeft = 2,
+        BottomRight = 3,
+        CenterLeft = 4,
+        CenterRight = 5,
+    }
+    private enum State
+    {
+        Wait,
+        Accu,
+        Finished,
+    }
+    private (State state, Point point) state;
 
-    private static readonly int TL = 0;// Top Left
-    private static readonly int TR = 1;// Top Right
-    private static readonly int BL = 2;// Bottom Left
-    private static readonly int BR = 3;// Bottom Right
-    private static readonly int CL = 4;// Center Left
-    private static readonly int CR = 5;// Center Right
-    private (Vector3 head, Vector3 index)[] bodyPoints;
+    private Dictionary<Point, (Vector3 head, Vector3 index)> bodyPoints;
     private Vector3[] screenPoints;
-    private (int i, Vector4 head, Vector4 index) cumulated;
+    private (int i, Vector3 head, Vector3 index) cumulated;
 
-    // Start is called before the first frame update
+    private static Point[] points = { Point.TopLeft, Point.TopRight, Point.BottomLeft, Point.BottomRight, Point.CenterLeft, Point.CenterRight };
+    private GameObject[] Targets => new[]{
+        targetTopLeft,
+        targetTopRight,
+        targetBottomLeft,
+        targetBottomRight,
+        targetCenterLeft,
+        targetCenterRight,
+    };
+
     void Start()
     {
-        cumulated = (0, Vector4.zero, Vector4.zero);
-        if (corners.Length != 4)
-        {
-            Debug.Log("Error: Only 4 corners allowed!");
-        }
+        foreach (var target in Targets) Assert.IsNotNull(target);
 
-        foreach (var corner in corners)
-        {
-            corner.GetComponent<Image>().color = Color.red;
-        }
+        cumulated = (0, Vector4.zero, Vector4.zero);
 
         detectionManager.SetActive(false);
 
-        bodyPoints = Enumerable.Repeat((Vector3.zero, Vector3.zero), 6).ToArray();
+        bodyPoints = points.ToDictionary(k => k, _ => (Vector3.zero, Vector3.zero));
         screenPoints = new Vector3[3];
 
-        counter = 0;
-        message = "0. Stand up so that the Kinect can detect all your body and validate when you are ready.";
-        instructionText.text = message;
+        state = (State.Wait, Point.TopLeft);
+        bodyPointsProvider.BodyPointsChanged += Accumulate;
+        SetVisualTarget();
     }
 
-    public void CumulatePoints()
+    private void Accumulate()
     {
-        // gather new points
-        var head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
-        var index = bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
-        // ignore if not properly tracked
-        if (!IsTracked(head)) return;
-        if (!IsTracked(index)) return;
-        // cumulate it
-        cumulated.i += 1;
-        cumulated.head += head;
-        cumulated.index += index;
+        if (state.state == State.Accu) {
+            var head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
+            var index = bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
+            // ignore if not properly tracked
+            if (!IsTracked(head)) return;
+            if (!IsTracked(index)) return;
+            // cumulate it
+            cumulated.i += 1;
+            cumulated.head += (Vector3)head;
+            cumulated.index += (Vector3)index;
+            Targets[(int)state.point].transform.localScale = TargetScale() * Vector3.one;
+            if (cumulated.i == 10)
+            {
+                cumulated.head /= 10f;
+                cumulated.index /= 10f;
 
-        // if all points cumulated
-        if (cumulated.i == 10)
-        {
-            // stop accumulation
-            bodyPointsProvider.BodyPointsChanged -= CumulatePoints;
-            // scale down accumulated value
-            cumulated.head /= 10f;
-            cumulated.index /= 10f;
-            // set point state to TRACKED (w = 1)
-            cumulated.head.w = 1f;
-            cumulated.index.w = 1f;
+                // 3d visual cues for debug purposes
+                new Visual.Sphere(transform, 0.02f, Color.green, $"Head {state.point}") { At = cumulated.head };
+                new Visual.Sphere(transform, 0.02f, Color.blue, $"Index {state.point}") { At = cumulated.index };
+                new Visual.Cylinder(transform, 0.01f, Color.blue, $"Line {state.point}") { Between = (cumulated.head, cumulated.index) };
+                new Visual.Cylinder(transform, 0.005f, Color.yellow, $"Line {state.point}") { Between = (cumulated.head, cumulated.index) };
 
-            // now update corner
-            UpdateCorner();
-            // but remember to reset
-            cumulated.i = 0;
-            cumulated.head = Vector4.zero;
-            cumulated.index = Vector4.zero;
+                bodyPoints[state.point] = (cumulated.head, cumulated.index);
+                cumulated = (0, Vector3.zero, Vector3.zero);
+                Targets[(int)state.point].SetActive(false);
+
+
+                state = state.point switch
+                {
+                    Point.TopLeft => (State.Wait, Point.TopRight),
+                    Point.TopRight => (State.Wait, Point.BottomLeft),
+                    Point.BottomLeft => (State.Wait, Point.BottomRight),
+                    Point.BottomRight => (State.Wait, Point.CenterLeft),
+                    Point.CenterLeft => (State.Wait, Point.CenterRight),
+                    Point.CenterRight => (State.Finished, Point.TopLeft),
+                    _ => throw new InvalidOperationException(),
+                };
+                switch (state.state)
+                {
+                    case State.Wait:
+                        button.interactable = true;
+                        SetVisualTarget();
+                        break;
+                    case State.Finished:
+                        UI.SetActive(false); // d�sactiver l'interface de calibration
+                        CornerCoordsFromBodyPoints();
+                        var p = screenPoints.Select(v => new[] { v.x, v.y, v.z }).ToArray();
+                        var json = JsonConvert.SerializeObject(new Calibration
+                        {
+                            score = 0.5f,
+                            tl = p[(int)Point.TopLeft],
+                            tr = p[(int)Point.TopRight],
+                            bl = p[(int)Point.BottomLeft],
+                        });
+                        File.WriteAllText("calibration.json", json);
+                        detectionManager.SetActive(true);
+                        break;
+                }
+            }
         }
+    }
+
+    private float TargetScale()
+    {
+        return 2f * (1f - cumulated.i / 9f);
+    }
+
+    private void SetVisualTarget()
+    {
+        Assert.IsTrue(state.state == State.Wait);
+        Targets[(int)state.point].transform.localScale = TargetScale() * Vector3.one;
+        Targets[(int)state.point].SetActive(true);
+    }
+
+    public void Update()
+    {
+        if (state.state == State.Wait) {
+            Targets[(int)state.point].transform.localScale = (TargetScale() + 0.2f * Mathf.Sin(Time.timeSinceLevelLoad * 4f)) * Vector3.one;
+        }
+        if (Input.GetKeyDown(KeyCode.Space)) UpdateCorner();
     }
     public void UpdateCorner()
     {
-        // we save 6 positions = 4 corners + 2 center directions
-        if (counter >= 1 && counter <= 6)
+        switch (state.state)
         {
-            // if point should be cumulated
-            if (cumulated.i == 0)
-            {
-                // start listenning for new body points
-                bodyPointsProvider.BodyPointsChanged += CumulatePoints;
-                // just quit because we are not ready to update corner
-                return;
-            }
-            // else, the cumulated points are ready to be used
-
-            var points = (head: cumulated.head, index: cumulated.index);
-            bodyPoints[counter - 1] = points;
-
-            if (!IsTracked(points.head) || !IsTracked(points.index))
-            {
-                Debug.Log("Calibration Warning: The body is not properly tracked");
-            }
-            new Visual.Sphere(transform, 0.02f, Color.green, $"Head {counter}") { At = points.head };
-            new Visual.Sphere(transform, 0.02f, Color.blue, $"Index {counter}") { At = points.index };
-            new Visual.Cylinder(transform, 0.01f, Color.blue, $"Line {counter}") { Between = (points.head, points.index) };
-            new Visual.Cylinder(transform, 0.005f, Color.yellow, $"Line {counter}") { Between = (points.head, points.index) };
-        }
-        // if we validate one of the 4 corners
-        if (counter > 0 && counter <= 4)
-        {
-            corners[counter - 1].GetComponent<Image>().color = Color.green;
-        }
-        // the 5th and 6th counters correspond to the center point
-        if (counter == 6)
-        {
-            center.GetComponent<Image>().color = Color.green;
-            // // bodyPointsProvider.BodyPointsChanged += () => Debug.Log(Detection().ToString());
-        }
-
-        counter++;
-
-        switch (counter)
-        {
-            // Rajouter le choix de la main dominante, on suppose droitier au d�part
-            case 1: message = "1. Point towards the upper-left corner and validate it when you are ready."; break;
-            case 2: message = "2. Point towards the upper-right corner and validate it when you are ready."; break;
-            case 3: message = "3. Point towards the lower-left corner and validate it when you are ready."; break;
-            case 4: message = "4. Point towards the lower-right corner and validate it when you are ready."; break;
-            case 5: message = "5. a) Point towards the center from your left side and validate it when you are ready."; break;
-            case 6: message = "5. b) Point towards the center from your right side and validate it when you are ready."; break;
-            case 7: message = "You have finished the calibration step! Validate again to exit."; break;
-            case 8:
-                {
-                    UI.SetActive(false); // d�sactiver l'interface de calibration
-                    CornerCoordsFromBodyPoints(bodyPoints);
-                    var p = screenPoints.Select(v => new[] { v.x, v.y, v.z }).ToArray();
-                    var json = JsonConvert.SerializeObject(new Calibration{
-                        score = 0.5f,
-                        tl = p[TL],
-                        tr = p[TR],
-                        bl = p[BL],
-                    });
-                    Debug.Log($"Saving {screenPoints[TL]}");
-                    File.WriteAllText("calibration.json", json);
-                    detectionManager.SetActive(true);
-                }
+            case State.Wait:
+                state.state = State.Accu;
+                button.interactable = false;
                 break;
-            default: message = "Error!"; break;
+            default: break;
         }
-
-        instructionText.text = message;
     }
 
-    [System.Serializable]
-    public struct Calibration {
+    [Serializable]
+    public struct Calibration
+    {
         public float score;
         public float[] tl;
         public float[] tr;
@@ -174,15 +174,14 @@ public class CalibrationManager : MonoBehaviour
         public static Vector3 ToVector3(float[] point) => new(point[0], point[1], point[2]);
     }
 
-    private void CornerCoordsFromBodyPoints((Vector3 head, Vector3 index)[] bodyPoints)
+    private void CornerCoordsFromBodyPoints()
     {
-        Assert.IsTrue(bodyPoints.Length == 6);
-        var tl = bodyPoints[TL];// top left
-        var tr = bodyPoints[TR];// top right
-        var bl = bodyPoints[BL];// bottom left
-        var br = bodyPoints[BR];// bottom right
-        var cl = bodyPoints[CL];// center left
-        var cr = bodyPoints[CR];// center right
+        var tl = bodyPoints[Point.TopLeft];
+        var tr = bodyPoints[Point.TopRight];
+        var bl = bodyPoints[Point.BottomLeft];
+        var br = bodyPoints[Point.BottomRight];
+        var cl = bodyPoints[Point.CenterLeft];
+        var cr = bodyPoints[Point.CenterRight];
         // average head position
         var head = (tl.head + tr.head + bl.head + br.head) / 4f;
         // center point on screen
@@ -196,9 +195,9 @@ public class CalibrationManager : MonoBehaviour
         var (_, ptr) = EdgeOnPlaneIntersection(tr.head, tr.index - tr.head, center, head - center);
         var (_, pbl) = EdgeOnPlaneIntersection(bl.head, bl.index - bl.head, center, head - center);
         var (_, pbr) = EdgeOnPlaneIntersection(br.head, br.index - br.head, center, head - center);// an extra corner that can be used to compute a calibration score
-        screenPoints[TL] = ptl;
-        screenPoints[TR] = ptr;
-        screenPoints[BL] = pbl;
+        screenPoints[(int)Point.TopLeft] = ptl;
+        screenPoints[(int)Point.TopRight] = ptr;
+        screenPoints[(int)Point.BottomLeft] = pbl;
 
         // visual cues to debug and see what's happening
         new Visual.Sphere(transform, 0.02f, Color.green, "Screen Center") { At = center };

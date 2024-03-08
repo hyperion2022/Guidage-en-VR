@@ -253,7 +253,7 @@ public class AdvancedTracking : BodyPointsProvider
                     if (hand.index == 0 ? (h > 0.8 && h < 1.2) : (h > -0.2 && h < 0.2))
                     {
                         hand.score = pipeline.Score;
-                        Debug.Log($"Tracking: Mode {mode}");
+                        // Debug.Log($"Tracking: Mode {mode}");
                         var ref1 = pipeline.GetWrist;
                         var ref2 = pipeline.GetIndex1;
                         var dist = Vector3.Distance(ref1, ref2);

@@ -24,7 +24,6 @@ public class DetectionManager : MonoBehaviour
         set
         {
             screen.tl = CalibrationManager.Calibration.ToVector3(value.tl);
-            Debug.Log($"Loading {screen.tl}");
             screen.tr = CalibrationManager.Calibration.ToVector3(value.tr);
             screen.bl = CalibrationManager.Calibration.ToVector3(value.bl);
             screen.i = screen.tr - screen.tl;
@@ -34,14 +33,12 @@ public class DetectionManager : MonoBehaviour
     }
     private Camera cam;
     private Visual.Sphere sphere1;
-    private Visual.Sphere sphere2;
 
     private void Start()
     {
         cam = Camera.main;
         Calibration = JsonConvert.DeserializeObject<CalibrationManager.Calibration>(File.ReadAllText("calibration.json"));
         sphere1 = new(transform, 0.02f, Color.magenta, "Pointing at");
-        sphere2 = new(transform, 0.03f, Color.yellow, "Screen Corner"){ At = screen.tl };
         Debug.Log("Detection Manager Start");
 
         screen.width = Screen.width;
@@ -56,7 +53,7 @@ public class DetectionManager : MonoBehaviour
         var (found, pointedPixel) = Detection();
         if (found)
         {
-            Debug.Log($"Pointing at {pointedPixel}");
+            // Debug.Log($"Pointing at {pointedPixel}");
             Vector3 cursorPosition = new Vector3(screen.width * pointedPixel.x, screen.height * pointedPixel.y, 0);
             cursor.transform.position = cursorPosition; // cam.ScreenToWorldPoint(cursorPosition);
         }
