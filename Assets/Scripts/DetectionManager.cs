@@ -1,75 +1,96 @@
 ﻿using Newtonsoft.Json;
 using System.IO;
 using UnityEngine;
+using UnityEngine.Assertions;
 using static BodyPointsProvider;
+using static CalibrationManager;
 
 public class DetectionManager : MonoBehaviour
 {
+    [SerializeField] string filePath = "calibration.json";
     [SerializeField] BodyPointsProvider bodyPointsProvider;
     [SerializeField] GameObject cursor;
 
     private (
         Vector3 tl,
-        Vector3 tr,
-        Vector3 bl,
-        Vector3 i,
-        Vector3 j,
-        Vector3 normal,
-        float width,
-        float height
+        Vector3 x,
+        Vector3 y,
+        Vector3 n,
+        int w,
+        int h
     ) screen;
 
-    public CalibrationManager.Calibration Calibration
-    {
-        set
-        {
-            screen.tl = CalibrationManager.Calibration.ToVector3(value.tl);
-            screen.tr = CalibrationManager.Calibration.ToVector3(value.tr);
-            screen.bl = CalibrationManager.Calibration.ToVector3(value.bl);
-            screen.i = screen.tr - screen.tl;
-            screen.j = screen.bl - screen.tl;
-            screen.normal = Vector3.Cross(screen.i, screen.j).normalized;
-        }
-    }
-    private Camera cam;
-    private Visual.Sphere sphere1;
+    private (
+        Visual.Sphere p,
+        Visual.Cylinder t,
+        Visual.Cylinder l,
+        Visual.Cylinder d
+    ) debug;
 
     private void Start()
     {
-        cam = Camera.main;
-        Calibration = JsonConvert.DeserializeObject<CalibrationManager.Calibration>(File.ReadAllText("calibration.json"));
-        sphere1 = new(transform, 0.02f, Color.magenta, "Pointing at");
-        Debug.Log("Detection Manager Start");
-
-        screen.width = Screen.width;
-        screen.height = Screen.height;
-
+        Assert.IsNotNull(bodyPointsProvider);
+        screen.n = Vector3.zero;
+        debug.t = new Visual.Cylinder(transform, 0.016f, Color.yellow);
+        debug.l = new Visual.Cylinder(transform, 0.016f, Color.yellow);
+        debug.d = new Visual.Cylinder(transform, 0.016f, Color.yellow);
+        debug.p = new(transform, 0.02f, Color.magenta, "Pointing at");
+        Debug.Log("Detection Manager: Start");
+        try { LoadFromFile(); }
+        catch (FileNotFoundException) { }
         bodyPointsProvider.BodyPointsChanged += UpdatePointer;
     }
 
-    // Update is called once per frame
+    public void SetCalibration(Calibration c)
+    {
+        screen.tl = c.tl;
+        screen.x = c.x;
+        screen.y = c.y;
+        screen.n = Vector3.Cross(c.x, c.y).normalized;
+        screen.w = Screen.width;
+        screen.h = Screen.height;
+        Debug.Log($"Detection: Screen perpendicularity {Vector3.Dot(c.x, c.y)}");
+        debug.t.Between = (c.tl, c.tl + c.x);
+        debug.l.Between = (c.tl, c.tl + c.y);
+        debug.d.Between = (c.tl, c.tl + c.x + c.y);
+    }
+
+    public void LoadFromFile(string filePath)
+    {
+        var c = Calibration.LoadFromFile(filePath);
+        if (c.score == 0f) return;
+        SetCalibration(c);
+    }
+    public void LoadFromFile() => LoadFromFile(filePath);
+
     void UpdatePointer()
     {
         var (found, pointedPixel) = Detection();
         if (found)
         {
-            // Debug.Log($"Pointing at {pointedPixel}");
-            Vector3 cursorPosition = new Vector3(screen.width * pointedPixel.x, screen.height * pointedPixel.y, 0);
-            cursor.transform.position = cursorPosition; // cam.ScreenToWorldPoint(cursorPosition);
+            Debug.Log($"Pointing at {pointedPixel}");
+            if (cursor != null)
+            {
+                Vector3 cursorPosition = new Vector3(screen.w * pointedPixel.x, screen.h * pointedPixel.y, 0);
+                cursor.transform.position = cursorPosition; // cam.ScreenToWorldPoint(cursorPosition);
+
+            }
         }
     }
 
     private (bool, Vector2) Detection()
     {
+        if (screen.x == Vector3.zero) return (false, Vector2.zero);
         var head = (Vector3)bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
         var index = (Vector3)bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
-        var (found, point) = CalibrationManager.EdgeOnPlaneIntersection(head, (index - head).normalized, screen.tl, screen.normal);
+        var (found, point) = EdgeOnPlaneIntersection(head, (index - head).normalized, screen.tl, screen.n);
         if (!found) return (false, Vector2.zero);
-        sphere1.At = point;
+        debug.p.At = point;
         point -= screen.tl;
+        // Debug.Log($"Dist to origin {point.magnitude}");
         return (true, new(
-            Vector3.Dot(screen.i, point),
-            Vector3.Dot(screen.j, point)
+            Vector3.Dot(screen.x, point) / screen.x.sqrMagnitude,
+            Vector3.Dot(screen.y, point) / screen.y.sqrMagnitude
         ));
     }
     // private Vector2 Detection()
@@ -86,11 +107,11 @@ public class DetectionManager : MonoBehaviour
     // }
 
     // point at depth = z al    
-    private Vector3 pointAtZ(Vector3 p1, Vector3 A, float z)
-    {
-        Vector3 direction = A - p1;
-        float t = (z - p1.z) / direction.z;
-        Vector3 point = p1 + t * direction;
-        return point;
-    }
+    // private Vector3 pointAtZ(Vector3 p1, Vector3 A, float z)
+    // {
+    //     Vector3 direction = A - p1;
+    //     float t = (z - p1.z) / direction.z;
+    //     Vector3 point = p1 + t * direction;
+    //     return point;
+    // }
 }
