@@ -32,7 +32,7 @@ public class CalibrationManager : MonoBehaviour
     private enum State { Init, Wait, Accu, Lean, Finished, }
     private (State state, Lean lean, Point point) state;
     private Dictionary<(Point, Lean), (Vector3 head, Vector3 index)> bodyPoints;
-    private (int i, Vector3 head, Vector3 index) cumulated;
+    private List<(Vector3 head, Vector3 index)> cumulated;
     private (Vector3 tl, Vector3 x, Vector3 y) screen;
     private Calibration calibration;
 
@@ -64,7 +64,7 @@ public class CalibrationManager : MonoBehaviour
         screen.tl = targetTopLeft.rectTransform.position;
         screen.x = targetTopRight.rectTransform.position - screen.tl;
         screen.y = targetBottomLeft.rectTransform.position - screen.tl;
-        cumulated = (0, Vector4.zero, Vector4.zero);
+        cumulated = new();
         bodyPoints = new();
         state = (State.Init, Lean.Center, Point.TopLeft);
         bodyPointsProvider.BodyPointsChanged += OnBodyPointsChange;
@@ -87,19 +87,16 @@ public class CalibrationManager : MonoBehaviour
             if (!IsTracked(head)) return;
             if (!IsTracked(index)) return;
             // cumulate it
-            cumulated.i += 1;
-            cumulated.head += (Vector3)head;
-            cumulated.index += (Vector3)index;
+            cumulated.Add(((Vector3)head, (Vector3)index));
             Targets[(int)state.point].transform.localScale = TargetScale() * Vector3.one;
-            if (cumulated.i == cumulate)
+            if (cumulated.Count == cumulate)
             {
-                cumulated.head /= cumulate;
-                cumulated.index /= cumulate;
-
+                var cumulatedHead = GeometricMedian(cumulated.Select(c => c.head).ToArray());
+                var cumulatedIndex = GeometricMedian(cumulated.Select(c => c.index).ToArray());
 
                 // Debug.Log($"Calibration: {state.lean} {state.point}");
-                bodyPoints[(state.point, state.lean)] = (cumulated.head, cumulated.index);
-                cumulated = (0, Vector3.zero, Vector3.zero);
+                bodyPoints[(state.point, state.lean)] = (cumulatedHead, cumulatedIndex);
+                cumulated.Clear();
                 Targets[(int)state.point].gameObject.SetActive(false);
 
 
@@ -156,7 +153,7 @@ public class CalibrationManager : MonoBehaviour
 
     private float TargetScale()
     {
-        return 1.8f * (1f - cumulated.i / (float)(cumulate - 1));
+        return 1.8f * (1f - cumulated.Count / (float)(cumulate - 1));
     }
 
     private void SetVisualTarget()
