@@ -1,6 +1,5 @@
 notes.pdf
-calibration.json
-screenCorners.json
+*.json
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/

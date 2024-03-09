@@ -44,10 +44,10 @@ public class CalibrationManager : MonoBehaviour
 
     static Color ColorFromPoint(Point point) => point switch
     {
-        Point.TopLeft => Color.red,
-        Point.TopRight => Color.green,
-        Point.BottomLeft => Color.blue,
-        Point.BottomRight => Color.magenta,
+        Point.TopLeft => Visual.red,
+        Point.TopRight => Visual.green,
+        Point.BottomLeft => Visual.yellow,
+        Point.BottomRight => Visual.magenta,
         _ => throw new InvalidOperationException(),
     };
 
@@ -138,7 +138,9 @@ public class CalibrationManager : MonoBehaviour
                         SetVisualTarget();
                         break;
                     case State.Finished:
+                        button.interactable = true;
                         instructions.text = "Done";
+                        buttonText.text = "RESTART";
                         cursor.gameObject.SetActive(true);
                         // UI.gameObject.SetActive(false); // d�sactiver l'interface de calibration
                         var c = CalibrationFromBodyPoints();
@@ -198,6 +200,13 @@ public class CalibrationManager : MonoBehaviour
                     _ => throw new InvalidOperationException(),
                 };
                 SetVisualTarget();
+                break;
+            case State.Finished:
+                cursor.gameObject.SetActive(false);
+                state = (State.Wait, Lean.Center, Point.TopLeft);
+                button.interactable = true;
+                SetVisualTarget();
+                instructions.text = pointingMessage;
                 break;
             default: break;
         }
@@ -266,6 +275,8 @@ public class CalibrationManager : MonoBehaviour
         var (_, p2a, p2b) = LineOnLineIntersection((head2, index2 - head2), (head3, index3 - head3));
         var (_, p3a, p3b) = LineOnLineIntersection((head3, index3 - head3), (head1, index1 - head1));
 
+        var median = GeometricMedian(new[] { p1a, p1b, p2a, p2b, p3a, p3b });
+
         if (visualizer != null)
         {
             // 3d visual cues for debug purposes
@@ -287,11 +298,9 @@ public class CalibrationManager : MonoBehaviour
             new Visual.Sphere(visualizer.transform, 0.02f, ColorFromPoint(point)) { At = p2b };
             new Visual.Sphere(visualizer.transform, 0.02f, ColorFromPoint(point)) { At = p3a };
             new Visual.Sphere(visualizer.transform, 0.02f, ColorFromPoint(point)) { At = p3b };
+            new Visual.Sphere(visualizer.transform, 0.03f, ColorFromPoint(point)) { At = median };
         }
 
-        // return (p1a + p1b + p2a + p2b + p3a + p3b) / 6f;
-        var median = GeometricMedian(new[] { p1a, p1b, p2a, p2b, p3a, p3b });
-        new Visual.Sphere(transform, 0.03f, ColorFromPoint(point)) { At = median };
         return median;
     }
 

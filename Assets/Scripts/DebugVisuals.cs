@@ -2,6 +2,12 @@ using UnityEngine;
 
 public class Visual
 {
+    public static Color yellow = Color.Lerp(Color.yellow, Color.white, 0.5f);
+    public static Color green = Color.Lerp(Color.green, Color.white, 0.5f);
+    public static Color blue = Color.Lerp(Color.blue, Color.white, 0.5f);
+    public static Color red = Color.Lerp(Color.red, Color.white, 0.5f);
+    public static Color magenta = Color.Lerp(Color.magenta, Color.white, 0.5f);
+    public static Color white = Color.Lerp(Color.white, Color.white, 0.5f);
     public class Sphere
     {
         private readonly GameObject go;

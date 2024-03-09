@@ -25,9 +25,10 @@ public class DetectionManager : MonoBehaviour
 
     private (
         Visual.Sphere p,
-        Visual.Cylinder t,
         Visual.Cylinder l,
-        Visual.Cylinder d
+        Visual.Cylinder r,
+        Visual.Cylinder t,
+        Visual.Cylinder b
     ) debug;
 
     private void Start()
@@ -36,10 +37,11 @@ public class DetectionManager : MonoBehaviour
         screen.n = Vector3.zero;
         if (visualizer != null)
         {
-            debug.t = new Visual.Cylinder(visualizer.transform, 0.016f, Color.yellow);
-            debug.l = new Visual.Cylinder(visualizer.transform, 0.016f, Color.yellow);
-            debug.d = new Visual.Cylinder(visualizer.transform, 0.016f, Color.yellow);
-            debug.p = new(visualizer.transform, 0.02f, Color.magenta, "Pointing at");
+            debug.l = new Visual.Cylinder(visualizer.transform, 0.02f, Visual.blue);
+            debug.r = new Visual.Cylinder(visualizer.transform, 0.02f, Visual.blue);
+            debug.t = new Visual.Cylinder(visualizer.transform, 0.02f, Visual.blue);
+            debug.b = new Visual.Cylinder(visualizer.transform, 0.02f, Visual.blue);
+            debug.p = new(visualizer.transform, 0.03f, Visual.blue, "Pointing at");
         }
         Debug.Log("Detection Manager: Start");
         try { LoadFromFile(); }
@@ -58,9 +60,10 @@ public class DetectionManager : MonoBehaviour
         Debug.Log($"Detection: Screen perpendicularity {Vector3.Dot(c.x, c.y)}");
         if (visualizer != null)
         {
-            debug.t.Between = (c.tl, c.tl + c.x);
             debug.l.Between = (c.tl, c.tl + c.y);
-            debug.d.Between = (c.tl, c.tl + c.x + c.y);
+            debug.r.Between = (c.tl + c.x, c.tl + c.y + c.x);
+            debug.t.Between = (c.tl, c.tl + c.x);
+            debug.b.Between = (c.tl + c.y, c.tl + c.x + c.y);
         }
     }
 

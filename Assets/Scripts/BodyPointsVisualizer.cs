@@ -150,10 +150,10 @@ public class BodyPointsVisualizer : MonoBehaviour
     {
         return ts switch
         {
-            1f => Color.Lerp(Color.green, Color.white, 0.5f),
-            0f => Color.Lerp(Color.white, Color.white, 0.5f),
-            3f => Color.Lerp(Color.red, Color.white, 0.5f),
-            _ => Color.Lerp(Color.blue, Color.white, 0.5f),
+            1f => Visual.green,
+            0f => Visual.white,
+            3f => Visual.red,
+            _ => Visual.blue,
         };
     }
 
