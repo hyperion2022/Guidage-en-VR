@@ -14,9 +14,10 @@ public class CalibrationManager : MonoBehaviour
     [SerializeField] BodyPointsProvider bodyPointsProvider;
     [SerializeField] DetectionManager detectionManager;
     [SerializeField] Canvas UI;
-    [SerializeField] UnityEngine.UI.Button button;
+    [SerializeField] UnityEngine.UI.Button validationButton;
+    [SerializeField] UnityEngine.UI.Button restartButton;
+    [SerializeField] UnityEngine.UI.Button saveButton;
     [SerializeField] UnityEngine.UI.Text instructions;
-    [SerializeField] UnityEngine.UI.Text buttonText;
     [SerializeField] UnityEngine.UI.Image cursor;
     [SerializeField] BodyPointsVisualizer visualizer;
     [Space]
@@ -33,6 +34,7 @@ public class CalibrationManager : MonoBehaviour
     private Dictionary<(Point, Lean), (Vector3 head, Vector3 index)> bodyPoints;
     private (int i, Vector3 head, Vector3 index) cumulated;
     private (Vector3 tl, Vector3 x, Vector3 y) screen;
+    private Calibration calibration;
 
     // private static Point[] points = { Point.TopLeft, Point.TopRight, Point.BottomLeft, Point.BottomRight };
     private UnityEngine.UI.Image[] Targets => new[]{
@@ -56,8 +58,7 @@ public class CalibrationManager : MonoBehaviour
         Assert.IsNotNull(bodyPointsProvider);
         Assert.IsNotNull(detectionManager);
         Assert.IsNotNull(UI);
-        Assert.IsNotNull(button);
-        Assert.IsNotNull(buttonText);
+        Assert.IsNotNull(validationButton);
         Assert.IsNotNull(instructions);
         foreach (var target in Targets) Assert.IsNotNull(target);
         screen.tl = targetTopLeft.rectTransform.position;
@@ -74,7 +75,7 @@ public class CalibrationManager : MonoBehaviour
         if (state.state == State.Init)
         {
             state = (State.Wait, Lean.Center, Point.TopLeft);
-            button.interactable = true;
+            validationButton.interactable = true;
             SetVisualTarget();
             instructions.text = pointingMessage;
         }
@@ -125,7 +126,7 @@ public class CalibrationManager : MonoBehaviour
                 switch (state.state)
                 {
                     case State.Lean:
-                        button.interactable = true;
+                        validationButton.interactable = true;
                         instructions.text = state.lean switch
                         {
                             Lean.Left => "Lean on your left",
@@ -134,18 +135,19 @@ public class CalibrationManager : MonoBehaviour
                         };
                         break;
                     case State.Wait:
-                        button.interactable = true;
+                        validationButton.interactable = true;
                         SetVisualTarget();
                         break;
                     case State.Finished:
-                        button.interactable = true;
+                        validationButton.gameObject.SetActive(false);
+                        restartButton.gameObject.SetActive(true);
+                        saveButton.gameObject.SetActive(true);
+                        saveButton.interactable = true;
                         instructions.text = "Done";
-                        buttonText.text = "RESTART";
                         cursor.gameObject.SetActive(true);
                         // UI.gameObject.SetActive(false); // d�sactiver l'interface de calibration
-                        var c = CalibrationFromBodyPoints();
-                        detectionManager.SetCalibration(c);
-                        c.SaveToFile(filePath);
+                        calibration = CalibrationFromBodyPoints();
+                        detectionManager.SetCalibration(calibration);
                         break;
                 }
             }
@@ -178,18 +180,25 @@ public class CalibrationManager : MonoBehaviour
         {
             Targets[(int)state.point].transform.localScale = (TargetScale() + 0.2f * Mathf.Sin(Time.timeSinceLevelLoad * 4f)) * Vector3.one;
         }
-        if (button.interactable && Input.GetKeyDown(KeyCode.Space))
+        if (validationButton.interactable && Input.GetKeyDown(KeyCode.Space))
         {
             UpdateCorner();
         }
     }
+
+    public void SaveToFile() {
+        calibration.SaveToFile(filePath);
+        instructions.text = "Calibration saved";
+        saveButton.interactable = false;
+    }
+
     public void UpdateCorner()
     {
         switch (state.state)
         {
             case State.Wait:
                 state.state = State.Accu;
-                button.interactable = false;
+                validationButton.interactable = false;
                 break;
             case State.Lean:
                 state.state = State.Wait;
@@ -204,7 +213,10 @@ public class CalibrationManager : MonoBehaviour
             case State.Finished:
                 cursor.gameObject.SetActive(false);
                 state = (State.Wait, Lean.Center, Point.TopLeft);
-                button.interactable = true;
+                restartButton.gameObject.SetActive(false);
+                saveButton.gameObject.SetActive(false);
+                validationButton.gameObject.SetActive(true);
+                validationButton.interactable = true;
                 SetVisualTarget();
                 instructions.text = pointingMessage;
                 break;
