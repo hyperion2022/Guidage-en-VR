@@ -9,7 +9,10 @@ public class DetectionManager : MonoBehaviour
 {
     [SerializeField] string filePath = "calibration.json";
     [SerializeField] BodyPointsProvider bodyPointsProvider;
+    [SerializeField] BodyPointsVisualizer visualizer;
     [SerializeField] GameObject cursor;
+
+    public (bool valid, Vector2 pos) PointingAt = (false, Vector2.zero);
 
     private (
         Vector3 tl,
@@ -31,10 +34,13 @@ public class DetectionManager : MonoBehaviour
     {
         Assert.IsNotNull(bodyPointsProvider);
         screen.n = Vector3.zero;
-        debug.t = new Visual.Cylinder(transform, 0.016f, Color.yellow);
-        debug.l = new Visual.Cylinder(transform, 0.016f, Color.yellow);
-        debug.d = new Visual.Cylinder(transform, 0.016f, Color.yellow);
-        debug.p = new(transform, 0.02f, Color.magenta, "Pointing at");
+        if (visualizer != null)
+        {
+            debug.t = new Visual.Cylinder(visualizer.transform, 0.016f, Color.yellow);
+            debug.l = new Visual.Cylinder(visualizer.transform, 0.016f, Color.yellow);
+            debug.d = new Visual.Cylinder(visualizer.transform, 0.016f, Color.yellow);
+            debug.p = new(visualizer.transform, 0.02f, Color.magenta, "Pointing at");
+        }
         Debug.Log("Detection Manager: Start");
         try { LoadFromFile(); }
         catch (FileNotFoundException) { }
@@ -50,9 +56,12 @@ public class DetectionManager : MonoBehaviour
         screen.w = Screen.width;
         screen.h = Screen.height;
         Debug.Log($"Detection: Screen perpendicularity {Vector3.Dot(c.x, c.y)}");
-        debug.t.Between = (c.tl, c.tl + c.x);
-        debug.l.Between = (c.tl, c.tl + c.y);
-        debug.d.Between = (c.tl, c.tl + c.x + c.y);
+        if (visualizer != null)
+        {
+            debug.t.Between = (c.tl, c.tl + c.x);
+            debug.l.Between = (c.tl, c.tl + c.y);
+            debug.d.Between = (c.tl, c.tl + c.x + c.y);
+        }
     }
 
     public void LoadFromFile(string filePath)
@@ -65,13 +74,13 @@ public class DetectionManager : MonoBehaviour
 
     void UpdatePointer()
     {
-        var (found, pointedPixel) = Detection();
-        if (found)
+        PointingAt = Detection();
+        if (PointingAt.valid)
         {
-            Debug.Log($"Pointing at {pointedPixel}");
+            Debug.Log($"Pointing at {PointingAt.pos}");
             if (cursor != null)
             {
-                Vector3 cursorPosition = new Vector3(screen.w * pointedPixel.x, screen.h * pointedPixel.y, 0);
+                Vector3 cursorPosition = new Vector3(screen.w * PointingAt.pos.x, screen.h * PointingAt.pos.y, 0);
                 cursor.transform.position = cursorPosition; // cam.ScreenToWorldPoint(cursorPosition);
 
             }
@@ -83,9 +92,12 @@ public class DetectionManager : MonoBehaviour
         if (screen.x == Vector3.zero) return (false, Vector2.zero);
         var head = (Vector3)bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
         var index = (Vector3)bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
-        var (found, point) = EdgeOnPlaneIntersection(head, (index - head).normalized, screen.tl, screen.n);
+        var (found, point) = LineOnPlaneIntersection(line: (head, (index - head).normalized), plane: (screen.tl, screen.n));
         if (!found) return (false, Vector2.zero);
-        debug.p.At = point;
+        if (visualizer != null)
+        {
+            debug.p.At = point;
+        }
         point -= screen.tl;
         // Debug.Log($"Dist to origin {point.magnitude}");
         return (true, new(
