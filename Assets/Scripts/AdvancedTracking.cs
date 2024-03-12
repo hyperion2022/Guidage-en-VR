@@ -5,6 +5,8 @@ using System.Linq;
 using System.Collections.Generic;
 using UnityEngine.Assertions;
 
+// Combines the captation from kinect and from HandPoseBarracuda
+// it provides body points, with both left and right hand, with each articulations
 public class AdvancedTracking : BodyPointsProvider
 {
     [SerializeField] InputMode[] inputModes = { InputMode.Color };
@@ -14,29 +16,45 @@ public class AdvancedTracking : BodyPointsProvider
     [SerializeField] ComputeShader dynamicContrastShader;
     [SerializeField] ComputeShader colorizeShader;
 
+    private KinectHandle.Body body = null;
+
+    // which video feed from kinect to send to HandPoseBarracuda
     public enum InputMode
     {
         Color,
         Infrared,
+        // the combine is an experiment to produce an a image by combining both color and infrared
+        // but it doesn't work well as it needs a way to calibrate Kinect's camera position for a correct superposition
         Combined,
     }
 
     private class Hand
     {
+        // which hand, for humans from planet earth, 0 for left hand, 1 for right
+        // sorry, we don't support non-binary hands, but we strive to be more inclusive in the future
         public int index;
+        // holds the different compute shaders and buffer for HandPoseBarracuda hand detection
         public HandTracking[] pipelines;
         public Vector3 pos;
+        // which kinect joint to query for hand center
         public JointType center;
+        // which kinect joint to query for hand wrist
         public JointType wrist;
         public RenderTexture[] textures;
+        // where we store data outputed by HandPoseBarracuda
         public Vector4[] points;
+        // the score is used to choose weither to update or not the positions:
+        // - the score is reducing by itself over time
+        // - we only update if the new positions have a better score
         public float score;
     }
     private Hand[] hands;
     private RenderTexture minMax1;
     private RenderTexture minMax2;
 
+    // infrared video feed from Kinect
     private KinectHandle.Source ir;
+    // color video feed from Kinect
     private KinectHandle.Source cl;
 
     void Start()
@@ -75,6 +93,9 @@ public class AdvancedTracking : BodyPointsProvider
             },
         };
         kinectHandle.OpenBody();
+
+        // we only open the color or infrared video feeds if we use them
+        // this is depending on the desired input mode
         var useCl = false;
         var useIr = false;
         foreach (var inputMode in inputModes)
@@ -112,9 +133,11 @@ public class AdvancedTracking : BodyPointsProvider
 
         kinectHandle.BodiesChanged += OnKinectBodiesChange;
 
+        // allows inspection of internal render textures
         Transform go;
         for (int i = 0; i < inputModes.Length; i++)
         {
+            // if a child is called in a specific way, and has a MeshRenderer
             go = transform.Find($"InspectLeft{i}");
             if (go != null)
             {
@@ -130,7 +153,7 @@ public class AdvancedTracking : BodyPointsProvider
 
     void OnKinectBodiesChange()
     {
-        var body = kinectHandle.TrackedBody;
+        body = kinectHandle.SelectedBody;
         if (body == null) return;
 
         foreach (var hand in hands)
@@ -139,10 +162,12 @@ public class AdvancedTracking : BodyPointsProvider
             var wrist = body.GetAware(hand.wrist);
             if (IsTracked(center) && IsTracked(wrist))
             {
+                // when Kinect gives a new hand position
                 hand.pos = (Vector3)center;
                 var dif = (Vector3)wrist - (Vector3)hand.points[0];
                 for (int i = 0; i < 21; i++)
                 {
+                    // we update all non-kinect point to move accordingly to Kinect info
                     hand.points[i] += new Vector4(dif.x, dif.y, dif.z, 0f);
                 }
             }
@@ -206,12 +231,16 @@ public class AdvancedTracking : BodyPointsProvider
         dynamicContrastShader.Dispatch(0, 512 / 8, 512 / 8, 1);
     }
 
+    // when receiving new frame from video feed, launch HandPoseBarracuda analysis on it
     void HandAnalysis()
     {
+        // reduce hand captation score over time, meaning, old data as lower score
         hands[0].score = Mathf.Max(hands[0].score - 0.1f, 0.7f);
         hands[1].score = Mathf.Max(hands[1].score - 0.1f, 0.7f);
-        var body = kinectHandle.TrackedBody;
+
         if (body == null) return;
+
+        // if the previous computation is still ongoing, just don't start a new
         foreach (var hand in hands)
         {
             foreach (var pipeline in hand.pipelines)
@@ -220,12 +249,16 @@ public class AdvancedTracking : BodyPointsProvider
             }
         }
 
+        // one analysis is ran per hands and per input method
+        // the effect of having several input methods in parallel, is a competitive captation
+        // were we only take the one giving the better score
         foreach (var hand in hands)
         {
             for (int i = 0; i < inputModes.Length; i++)
             {
                 var mode = inputModes[i];
                 var pipeline = hand.pipelines[i];
+                // first, we are going to isolate the hand in a square texture
                 var texture = hand.textures[i];
                 switch (mode)
                 {
@@ -234,36 +267,45 @@ public class AdvancedTracking : BodyPointsProvider
                         break;
                     case InputMode.Infrared:
                         ir.Crop(hand.pos, 0.18f, texture);
+                        // on infrared, we have to apply a dynamic contrast filter
+                        // it makes sure, the maximum value is always 1.0
                         DynamicConstrast(texture);
                         break;
                     case InputMode.Combined:
                         ir.Crop(hand.pos, 0.18f, texture);
                         DynamicConstrast(texture);
+                        // on combined, we augment the infrared with color information from color video feed
                         colorizeShader.SetTexture(0, "color", cl.texture);
                         colorizeShader.SetVector("box", cl.BoundingBox(hand.pos, 0.18f));
                         colorizeShader.SetTexture(0, "result", texture);
                         colorizeShader.Dispatch(0, 512 / 8, 512 / 8, 1);
                         break;
                 }
+                // now the HandPoseBarracude analysis is launched
                 pipeline.ProcessImage(texture);
+                // when and only when the result will be available, then...
                 pipeline.BodyPointsUpdatedEvent += () =>
                 {
+                    // only update if score is better then previous and handedness is correct
                     if (pipeline.Score <= hand.score) return;
                     var h = pipeline.Handedness;
                     if (hand.index == 0 ? (h > 0.8 && h < 1.2) : (h > -0.2 && h < 0.2))
                     {
                         hand.score = pipeline.Score;
-                        // Debug.Log($"Tracking: Mode {mode}");
+                        // to properly scale the hand, we naively assume the distance
+                        // from wrist to index base should be around 10cm
                         var ref1 = pipeline.GetWrist;
                         var ref2 = pipeline.GetIndex1;
                         var dist = Vector3.Distance(ref1, ref2);
                         if (dist > 0.1f && dist < 4f)
                         {
                             var scale = 0.1f / dist;
+
                             var wristAbs = body.Get(hand.wrist);
                             var wristRel = pipeline.GetWrist;
                             for (int i = 0; i < 21; i++)
                             {
+                                // each point is positioned in Kinect space
                                 var posRel = (Vector3)pipeline.HandPoints[i];
                                 var point = (posRel - wristRel) * scale + wristAbs;
                                 hand.points[i] = Tracked(point);
@@ -296,6 +338,8 @@ public class AdvancedTracking : BodyPointsProvider
         }
     }
 
+    // because, this class combines different body points detectors,
+    // we need to pipe the request depending on what point is requested
     public override Vector4 GetBodyPoint(BodyPoint key)
     {
         if (!availablePoints.ContainsKey(key))
@@ -305,7 +349,6 @@ public class AdvancedTracking : BodyPointsProvider
         var (hand, at) = availablePoints[key];
         if (hand == 2)
         {
-            var body = kinectHandle.TrackedBody;
             if (body == null) return absent;
             return Tracked(body.Get(passThrough[at]));
         }
@@ -319,6 +362,14 @@ public class AdvancedTracking : BodyPointsProvider
     public override BodyPoint[] AvailablePoints => availablePoints.Keys.ToArray();
 
 
+    // the first int:
+    // 0 = point is on left hand
+    // 1 = point is on right hand
+    // 2 = point is rest of body, handled by kinect
+    // it would be much better to use algebraic data type instead of a (int, int), but saddly, not available
+    // LeftHand(HandPoint)
+    // RightHand(HandPoint)
+    // Kinect()
     Dictionary<BodyPoint, (int, int)> availablePoints = new()
     {
         [BodyPoint.LeftWrist] = (0, 0),

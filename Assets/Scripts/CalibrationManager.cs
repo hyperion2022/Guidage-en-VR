@@ -9,7 +9,7 @@ using System;
 
 public class CalibrationManager : MonoBehaviour
 {
-    [SerializeField] int cumulate = 10;
+    [SerializeField] int cumulate = 20;
     [SerializeField] string filePath = "calibration.json";
     [SerializeField] BodyPointsProvider bodyPointsProvider;
     [SerializeField] DetectionManager detectionManager;
@@ -27,16 +27,37 @@ public class CalibrationManager : MonoBehaviour
     [SerializeField] UnityEngine.UI.Image targetBottomRight;
 
     private static readonly string pointingMessage = "Point with your index toward the center of the blue target\nValidate (press space) and stay still until the target disapear";
+    // there are 4 corners on the screen
     private enum Point { TopLeft = 0, TopRight = 1, BottomLeft = 2, BottomRight = 3, }
+    // the user may positionate itself in 3 posture, straight, leaning left, leaning right
     private enum Lean { Center, Left, Right, }
-    private enum State { Init, Wait, Accu, Lean, Finished, }
+    private enum State
+    {
+        Init,// waiting for Kinect to go online and start providing body points
+        Wait,// waiting for user to click button for pointing capture
+        Accu,// once the user ckicked the button, we capture N pointing (to average them to reduce uncertainty)
+        Lean,// we ask the user to lean on one of its side, waiting for him to click the button
+        Finished,// the calibration step is complete, we offer the user to either save the calibration or restart a new one
+    }
+    // the full state of the scene would better be described with algebraic data type, but as this is not supported
+    // in C#, we just use a tuple. For instance:
+    // (init, _, _) waiting Kinect availability
+    // (wait, left, topLeft) waiting user to click button, one clicked goes to (accu, left, topLeft)
+    // (accu, left, topLeft) accumulating poitings, once finished goes to (wait, left, topRight)
     private (State state, Lean lean, Point point) state;
+    // we store the captured pointing, in tatal, there are Point * Lean (4 * 3 = 12) pointings
+    // a pointing is both the head and index position (we draw a line passing through both)
     private Dictionary<(Point, Lean), (Vector3 head, Vector3 index)> bodyPoints;
+    // when capturing a pointing, we accumulate several captures, then we average them (this reduces incertainty and noise)
     private List<(Vector3 head, Vector3 index)> cumulated;
+    // just a way to position things on the interface with normalized coordinates
+    // - tl = top left corner position
+    // - x = the horizontal unit vector
+    // - y = the vertical unit vector
     private (Vector3 tl, Vector3 x, Vector3 y) screen;
     private Calibration calibration;
 
-    // private static Point[] points = { Point.TopLeft, Point.TopRight, Point.BottomLeft, Point.BottomRight };
+    // a convenient way not to repeat code afterwards
     private UnityEngine.UI.Image[] Targets => new[]{
         targetTopLeft,
         targetTopRight,
@@ -44,6 +65,7 @@ public class CalibrationManager : MonoBehaviour
         targetBottomRight,
     };
 
+    // for debug purposes, matches a color to screen corners
     static Color ColorFromPoint(Point point) => point switch
     {
         Point.TopLeft => Visual.red,
@@ -61,19 +83,32 @@ public class CalibrationManager : MonoBehaviour
         Assert.IsNotNull(validationButton);
         Assert.IsNotNull(instructions);
         foreach (var target in Targets) Assert.IsNotNull(target);
+
+        // we use UI elements positioned at interface corners to create a referencial
         screen.tl = targetTopLeft.rectTransform.position;
         screen.x = targetTopRight.rectTransform.position - screen.tl;
         screen.y = targetBottomLeft.rectTransform.position - screen.tl;
+
         cumulated = new();
         bodyPoints = new();
+        calibration = new()
+        {
+            score = 0f,
+            tl = Vector3.zero,
+            x = Vector3.zero,
+            y = Vector3.zero
+        };
+
         state = (State.Init, Lean.Center, Point.TopLeft);
         bodyPointsProvider.BodyPointsChanged += OnBodyPointsChange;
     }
 
+    // this function is called every time the kinect produces a new captation
     private void OnBodyPointsChange()
     {
         if (state.state == State.Init)
         {
+            // we can leave the Init state
             state = (State.Wait, Lean.Center, Point.TopLeft);
             validationButton.interactable = true;
             SetVisualTarget();
@@ -88,18 +123,25 @@ public class CalibrationManager : MonoBehaviour
             if (!IsTracked(index)) return;
             // cumulate it
             cumulated.Add(((Vector3)head, (Vector3)index));
+
+            // this gives a feedback to the user by shrinking the blue target
             Targets[(int)state.point].transform.localScale = TargetScale() * Vector3.one;
+
+            // if we reach the accumulation number
             if (cumulated.Count == cumulate)
             {
+                // the average is calculated, except it is not the center of mass, but the geometric median
+                // by the geometric median is more resilient to rogue points (the one diverging too much)
                 var cumulatedHead = GeometricMedian(cumulated.Select(c => c.head).ToArray());
                 var cumulatedIndex = GeometricMedian(cumulated.Select(c => c.index).ToArray());
-
-                // Debug.Log($"Calibration: {state.lean} {state.point}");
-                bodyPoints[(state.point, state.lean)] = (cumulatedHead, cumulatedIndex);
                 cumulated.Clear();
+
+                // storing the pointing
+                bodyPoints[(state.point, state.lean)] = (cumulatedHead, cumulatedIndex);
+                // hide the blue target
                 Targets[(int)state.point].gameObject.SetActive(false);
 
-
+                // what will be the next state?
                 var (next, point) = state.point switch
                 {
                     Point.TopLeft => (State.Wait, Point.TopRight),
@@ -108,10 +150,12 @@ public class CalibrationManager : MonoBehaviour
                     Point.BottomRight => (State.Finished, Point.TopLeft),
                     _ => throw new InvalidOperationException(),
                 };
+                // if all points done, but not all lean done, do next lean
                 if (next == State.Finished && state.lean == Lean.Center)
                 {
                     state = (State.Lean, Lean.Left, point);
                 }
+                // if all points done, but not all lean done, do next lean
                 else if (next == State.Finished && state.lean == Lean.Left)
                 {
                     state = (State.Lean, Lean.Right, point);
@@ -120,6 +164,7 @@ public class CalibrationManager : MonoBehaviour
                 {
                     state = (next, state.lean, point);
                 }
+                // now do transition
                 switch (state.state)
                 {
                     case State.Lean:
@@ -142,7 +187,6 @@ public class CalibrationManager : MonoBehaviour
                         saveButton.interactable = true;
                         instructions.text = "Done";
                         cursor.gameObject.SetActive(true);
-                        // UI.gameObject.SetActive(false); // d�sactiver l'interface de calibration
                         calibration = CalibrationFromBodyPoints();
                         detectionManager.SetCalibration(calibration);
                         break;
@@ -151,11 +195,11 @@ public class CalibrationManager : MonoBehaviour
         }
     }
 
-    private float TargetScale()
-    {
-        return 1.8f * (1f - cumulated.Count / (float)(cumulate - 1));
-    }
+    // when the accumulation is progressing, the targets shrinks, the following
+    // function returns the desired scale (shrinking) for the current accumulation
+    private float TargetScale() => 1.8f * (1f - cumulated.Count / (float)(cumulate - 1));
 
+    // shorthand to make the desired blue target visible
     private void SetVisualTarget()
     {
         Assert.IsTrue(state.state == State.Wait);
@@ -165,31 +209,35 @@ public class CalibrationManager : MonoBehaviour
 
     public void Update()
     {
-        if (state.state == State.Finished)
+        // shows a cursor where the user is pointing with its finger
+        var (valid, p) = detectionManager.PointingAt;
+        if (valid)
         {
-            var (valid, p) = detectionManager.PointingAt;
-            if (valid)
-            {
-                cursor.rectTransform.position = screen.tl + p.x * screen.x + p.y * screen.y;
-            }
+            cursor.rectTransform.position = screen.tl + p.x * screen.x + p.y * screen.y;
         }
-        else if (state.state == State.Wait)
+
+        if (state.state == State.Wait)
         {
+            // animate the blue target by making its scale slightly oscilating with time
             Targets[(int)state.point].transform.localScale = (TargetScale() + 0.2f * Mathf.Sin(Time.timeSinceLevelLoad * 4f)) * Vector3.one;
         }
         if (validationButton.interactable && Input.GetKeyDown(KeyCode.Space))
         {
-            UpdateCorner();
+            // pressing space does the same thing as clicking the button
+            OnValidation();
         }
     }
 
-    public void SaveToFile() {
+    // serialize to json and save to disk the current calibration
+    public void SaveToFile()
+    {
+        Assert.IsTrue(calibration.x != Vector3.zero);
         calibration.SaveToFile(filePath);
         instructions.text = "Calibration saved";
         saveButton.interactable = false;
     }
 
-    public void UpdateCorner()
+    public void OnValidation()
     {
         switch (state.state)
         {
@@ -208,6 +256,8 @@ public class CalibrationManager : MonoBehaviour
                 SetVisualTarget();
                 break;
             case State.Finished:
+                // the user wants to restart the calibration
+                // then reset everything to initial state
                 cursor.gameObject.SetActive(false);
                 state = (State.Wait, Lean.Center, Point.TopLeft);
                 restartButton.gameObject.SetActive(false);
@@ -224,13 +274,16 @@ public class CalibrationManager : MonoBehaviour
     public struct Calibration
     {
         public float score;
+        // position of the top left corner
         public Vector3 tl;
+        // horizontal vector, with its magnitude beeing the screen's width
         public Vector3 x;
+        // vertical vector, with its magnitude beeing the screen's height
         public Vector3 y;
 
         public void SaveToFile(string filePath)
         {
-            File.WriteAllText(filePath, JsonConvert.SerializeObject(new CalibrationJson
+            File.WriteAllText(filePath, JsonConvert.SerializeObject(new Json
             {
                 score = score,
                 tl = new[] { tl.x, tl.y, tl.z },
@@ -240,7 +293,7 @@ public class CalibrationManager : MonoBehaviour
         }
         public static Calibration LoadFromFile(string filePath)
         {
-            var v = JsonConvert.DeserializeObject<CalibrationJson>(File.ReadAllText(filePath));
+            var v = JsonConvert.DeserializeObject<Json>(File.ReadAllText(filePath));
             if (v.tl != null && v.x != null && v.y != null && v.tl.Length == 3 && v.x.Length == 3 && v.y.Length == 3)
             {
                 return new()
@@ -262,23 +315,19 @@ public class CalibrationManager : MonoBehaviour
                 };
             }
         }
+        // just the equivalent of Calibration, but serializable to json
+        [Serializable]
+        private struct Json { public float score; public float[] tl; public float[] x; public float[] y; }
     }
 
-    [Serializable]
-    private struct CalibrationJson
-    {
-        public float score;
-        public float[] tl;
-        public float[] x;
-        public float[] y;
-    }
 
+    // for a given screen corner, returns its estimated position by
+    // intersecting the 3 pointings from the different lean (center, left, right)
     private Vector3 TripleIntersect(Point point)
     {
         var (head1, index1) = bodyPoints[(point, Lean.Center)];
         var (head2, index2) = bodyPoints[(point, Lean.Left)];
         var (head3, index3) = bodyPoints[(point, Lean.Right)];
-
 
         var (_, p1a, p1b) = LineOnLineIntersection((head1, index1 - head1), (head2, index2 - head2));
         var (_, p2a, p2b) = LineOnLineIntersection((head2, index2 - head2), (head3, index3 - head3));
@@ -286,9 +335,10 @@ public class CalibrationManager : MonoBehaviour
 
         var median = GeometricMedian(new[] { p1a, p1b, p2a, p2b, p3a, p3b });
 
+        // 3d visual cues for debug purposes
+        // the `visualizer` acts as a parent for debug GameObject
         if (visualizer != null)
         {
-            // 3d visual cues for debug purposes
             new Visual.Sphere(visualizer.transform, 0.02f, ColorFromPoint(point), $"Head {Lean.Center} {point}") { At = head1 };
             new Visual.Sphere(visualizer.transform, 0.02f, ColorFromPoint(point), $"Head {Lean.Left} {point}") { At = head2 };
             new Visual.Sphere(visualizer.transform, 0.02f, ColorFromPoint(point), $"Head {Lean.Right} {point}") { At = head3 };
@@ -313,29 +363,36 @@ public class CalibrationManager : MonoBehaviour
         return median;
     }
 
+    // once all pointings have been captured, we deduce screen position from from them
     private Calibration CalibrationFromBodyPoints()
     {
+        // compute the estimated position of the 4 screen corners
         var tl = TripleIntersect(Point.TopLeft);
         var tr = TripleIntersect(Point.TopRight);
         var bl = TripleIntersect(Point.BottomLeft);
         var br = TripleIntersect(Point.BottomRight);
+        // this is not enough, as the data is quite noisy,
+        // we estimate a better position with crossing redundant informations
 
         var center = (tl + tr + bl + br) / 4f;
-        var vl = (tl + bl) / 2f - center;
-        var vr = (tr + br) / 2f - center;
-        var vt = (tl + tr) / 2f - center;
-        var vb = (bl + br) / 2f - center;
+        var vl = (tl + bl) / 2f - center;// left side vector
+        var vr = (tr + br) / 2f - center;// right side vector
+        var vt = (tl + tr) / 2f - center;// top side vector
+        var vb = (bl + br) / 2f - center;// bottom side vector
 
-        var x = vr - vl;
-        var y = vb - vt;
-        var w = x.magnitude;
-        var h = y.magnitude;
+        var x = vr - vl;// estimated horizontal unit vector
+        var y = vb - vt;// estimated vertical unit vector
+        var w = x.magnitude;// width
+        var h = y.magnitude;// height
 
+        // now, `x` and `y`, due to captation noise and error, are probably not orthogonal
+        // we could correct it by moving either `x` or `y`, but the best is to do both and to peek in the middle
         var normal = Vector3.Cross(y, x).normalized;
         var yc = Vector3.Cross(x, normal);
         var xc = Vector3.Cross(normal, y);
         x = (x + xc).normalized * w;
         y = (y + yc).normalized * h;
+        // they are not exactly orthogonal, but it doesn't matter
 
         var origin = center - (x + y) / 2f;
         return new() { score = 1f, tl = origin, x = x, y = y, };

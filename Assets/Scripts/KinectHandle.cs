@@ -12,6 +12,7 @@ public class KinectHandle : MonoBehaviour
     [SerializeField] bool EnableLogs;
     [SerializeField] ComputeShader flipShader;
     [SerializeField] ComputeShader cropShader;
+    [SerializeField] int selectedBody = 0;
     public bool IsAvailable => kinect.IsAvailable;
 
     public class Body {
@@ -34,6 +35,24 @@ public class KinectHandle : MonoBehaviour
         }
     }
     public Body TrackedBody => (body.tracked >= 0) ? new Body{body = body.values[body.tracked]} : null;
+    public Body SelectedBody {
+        get {
+            var sbody = body.values[selectedBody];
+            if (sbody == null) {
+                Debug.Log($"Kinect Handle: Selected body null");
+                return null;
+            }
+            else {
+                if (sbody.IsTracked) {
+                    return new Body{body = body.values[selectedBody]};
+                }
+                else {
+                    Debug.Log($"Kinect Handle: Selected body is not tracked");
+                    return null;
+                }
+            }
+        }
+    }
     public event Action BodiesChanged;
     public event Action IsAvailableChanged;
 

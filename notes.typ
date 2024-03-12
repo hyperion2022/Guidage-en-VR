@@ -1,3 +1,13 @@
+= Petite modif rapport
+
+== Intro
+
+Mettre en premier colaboration à distance et ajouter science (experience avec cobaye)
+
+== Existant
+
+Leap Motion a l'air d'être vraiment l'outil adapté à notre utilisation, tout seul, il remplace la kinect et baracuda.
+
 = Advanced Tracking
 
 Est-il possible d'obtenir un alignement parfait de l'image couleur et infrarouge ?
@@ -22,3 +32,5 @@ Par ailleurs, il y a un troisième défit, sur comment combiner les deux informa
 La deuxième aproche était de ne pas prendre en compte le contrast lumineux de la caméra couleur, mais uniquement d'utiliser la teinte et la saturation pour l'ajouter à l'image infrarouge, que l'information de couleur ne devrait pas introduire de contour. Il a fallut implémenter dans un shader deux fonctions `rgb_to_hsv` et `hsv_to_rgb`. Cependant ça ne donne pas non plus de bon résultat. Il semble qu'un alignement parfait des deux images est véritablement une nécéssité. Deplus, pour l'alignement, il faut choisir la profondeur sur laquelle on aligne l'image, donc si la main est orientée de sorte que certaine parties sont plus éloignées et d'autres plus proche, la superposition des deux images ne peut pas être parfaite sur l'intégralité de la main. Il est possible grâce au donné de la Kinect de supposé une inclinaison globale de la main et d'appliquer un alignement progressif dans la direction où l'éloignement varie.
 
 La dernière piste est simplement de faire deux analyses à chaque fois, avec la couleur et avec l'infrarouge, et de ne garder le résultat de celle qui obtient le meilleur score. On a de la résilience mais une utilisation de ressources doublées, avec peut-être, sur une machine peu puissante, une perte de fluidité. 
+
+HandPose peut tracker les deux mains, en lançant l'analyse une première fois, en récupérant la parité de la main, puis en lançant une deuxième fois l'analyse, mais cette fois-ci en masquant la main détecté lors de la première analyse.
