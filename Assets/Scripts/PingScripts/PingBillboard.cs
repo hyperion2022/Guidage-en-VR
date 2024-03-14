@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PingBillboard : MonoBehaviour
+public class Billboard : MonoBehaviour
 {
     [SerializeField] private BillboardType billboardType;
 

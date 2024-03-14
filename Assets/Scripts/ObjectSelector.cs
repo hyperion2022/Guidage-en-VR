@@ -1,3 +1,4 @@
+using Unity.Burst.CompilerServices;
 using UnityEngine;
 
 // https://docs.unity3d.com/Manual/CameraRays.html
@@ -8,14 +9,50 @@ public class ObjectSelector : MonoBehaviour
     private GameObject lastHitObject;
     private GameObject newHitObject;
 
+    private void drawOutline(GameObject obj, Color color, float thickness)
+    {
+        var objectOutline = obj.AddComponent<Outline>();
+        objectOutline.OutlineMode = Outline.Mode.OutlineAll;
+        objectOutline.OutlineColor = color;
+        objectOutline.OutlineWidth = thickness;
+    }
+    private void deleteOutline(GameObject obj)
+    {
+        Destroy(obj.GetComponent<Outline>());
+    }
     void Start()
     {
         mainCamera = Camera.main;
+       
     }
 
     void FixedUpdate()
     {
         DrawRayFromMousePosition();
+
+
+        RaycastHit hit;
+        Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
+
+        // Launch ray
+        if (Physics.Raycast(ray, out hit) && Input.GetKeyDown("mouse 0"))
+        {
+            GameObject objHit= hit.transform.gameObject;
+            if (objHit.GetComponent<Outline>() != null)
+            {
+                if (objHit.GetComponent<Outline>().OutlineColor == Color.yellow)
+                {
+                    deleteOutline(objHit);
+                }
+
+                if (objHit.GetComponent<Outline>().OutlineColor == Color.gray)
+                {
+                    deleteOutline(objHit);
+                    drawOutline(objHit, Color.yellow, 10f);
+                }
+            }
+         
+        }
     }
 
     void DrawRayFromMousePosition()
@@ -32,22 +69,13 @@ public class ObjectSelector : MonoBehaviour
             if (lastHitObject != newHitObject)
             {
                 // Remove the outline on the last object
-                if (lastHitObject != null)
+                if (lastHitObject != null && lastHitObject.GetComponent<Outline>().OutlineColor==Color.gray)
                 {
-                    Destroy(lastHitObject.GetComponent<Outline>());
+                    deleteOutline(lastHitObject);
                 }
-            
-                // Do something with the object that was hit by the raycast.
-                // Color color = Color.red;
-                // Debug.DrawLine(ray.origin, hit.point, color);
-                // Debug.DrawLine(ray.origin, hit.point + new Vector3(0.25f, 0.25f, 0.25f), color);
-                // Debug.Log(objectHit);
 
                 // Add the outline to the new object
-                var newHitObjectOutline = newHitObject.AddComponent<Outline>();
-                newHitObjectOutline.OutlineMode = Outline.Mode.OutlineAll;
-                newHitObjectOutline.OutlineColor = Color.yellow;
-                newHitObjectOutline.OutlineWidth = 10f;
+                drawOutline(newHitObject, Color.gray,5f);
 
                 // The new object becomes the last object.
                 lastHitObject = newHitObject;
