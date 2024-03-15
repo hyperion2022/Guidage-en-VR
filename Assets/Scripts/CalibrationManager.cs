@@ -54,7 +54,6 @@ public class CalibrationManager : MonoBehaviour
     // - tl = top left corner position
     // - x = the horizontal unit vector
     // - y = the vertical unit vector
-    private (Vector3 tl, Vector3 x, Vector3 y) screen;
     private Calibration calibration;
 
     // a convenient way not to repeat code afterwards
@@ -83,11 +82,6 @@ public class CalibrationManager : MonoBehaviour
         Assert.IsNotNull(validationButton);
         Assert.IsNotNull(instructions);
         foreach (var target in Targets) Assert.IsNotNull(target);
-
-        // we use UI elements positioned at interface corners to create a referencial
-        screen.tl = targetTopLeft.rectTransform.position;
-        screen.x = targetTopRight.rectTransform.position - screen.tl;
-        screen.y = targetBottomLeft.rectTransform.position - screen.tl;
 
         cumulated = new();
         bodyPoints = new();
@@ -213,7 +207,8 @@ public class CalibrationManager : MonoBehaviour
         var (valid, p) = detectionManager.PointingAt;
         if (valid)
         {
-            cursor.rectTransform.position = screen.tl + p.x * screen.x + p.y * screen.y;
+            p = p * 2f - Vector2.one;
+            cursor.rectTransform.position = new(p.x * 100f, p.y * -100f, cursor.rectTransform.position.z);
         }
 
         if (state.state == State.Wait)
