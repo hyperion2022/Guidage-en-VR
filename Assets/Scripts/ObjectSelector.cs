@@ -1,85 +1,38 @@
-using Unity.Burst.CompilerServices;
 using UnityEngine;
 
 // https://docs.unity3d.com/Manual/CameraRays.html
 // https://docs.unity3d.com/ScriptReference/Debug.DrawLine.html
 public class ObjectSelector : MonoBehaviour
 {
-    public Camera mainCamera;
-    private GameObject lastHitObject;
-    private GameObject newHitObject;
+    // when the mouse is hovering an object, we store a reference to it
+    private SelectedObject hovered = null;
 
-    private void drawOutline(GameObject obj, Color color, float thickness)
+    void Update()
     {
-        var objectOutline = obj.AddComponent<Outline>();
-        objectOutline.OutlineMode = Outline.Mode.OutlineAll;
-        objectOutline.OutlineColor = color;
-        objectOutline.OutlineWidth = thickness;
-    }
-    private void deleteOutline(GameObject obj)
-    {
-        Destroy(obj.GetComponent<Outline>());
-    }
-    void Start()
-    {
-        mainCamera = Camera.main;
-       
-    }
-
-    void FixedUpdate()
-    {
-        DrawRayFromMousePosition();
-
-
-        RaycastHit hit;
-        Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
-
-        // Launch ray
-        if (Physics.Raycast(ray, out hit) && Input.GetKeyDown("mouse 0"))
+        if (Physics.Raycast(Camera.main.ScreenPointToRay(Input.mousePosition), out var hit))
         {
-            GameObject objHit= hit.transform.gameObject;
-            if (objHit.GetComponent<Outline>() != null)
-            {
-                if (objHit.GetComponent<Outline>().OutlineColor == Color.yellow)
-                {
-                    deleteOutline(objHit);
-                }
+            // if the hovered object is no longer being pointed at, then remove outline if not selected
+            if (
+                hovered != null &&
+                hovered.transform != hit.transform &&
+                !hovered.Selected
+            ) Destroy(hovered);
 
-                if (objHit.GetComponent<Outline>().OutlineColor == Color.gray)
-                {
-                    deleteOutline(objHit);
-                    drawOutline(objHit, Color.yellow, 10f);
-                }
+            // whatever is being pointed at, get the Outline (or in our case SelectedObject) component
+            // if the component is not present, then add it (by default is not selected)
+            if (!hit.transform.TryGetComponent(out hovered))
+            {
+                hovered = hit.transform.gameObject.AddComponent<SelectedObject>();
             }
-         
+
+            // if we are clicking, toogle selection on hovered object
+            if (Input.GetKeyDown(KeyCode.Mouse0)) hovered.Selected = !hovered.Selected;
         }
-    }
-
-    void DrawRayFromMousePosition()
-    {
-        RaycastHit hit;
-        Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
-
-        // Launch ray
-        if (Physics.Raycast(ray, out hit))
+        else// if we are not pointing at anything
         {
-            newHitObject = hit.transform.gameObject;
-
-            // If we hit a new object different from the last one
-            if (lastHitObject != newHitObject)
-            {
-                // Remove the outline on the last object
-                if (lastHitObject != null && lastHitObject.GetComponent<Outline>().OutlineColor==Color.gray)
-                {
-                    deleteOutline(lastHitObject);
-                }
-
-                // Add the outline to the new object
-                drawOutline(newHitObject, Color.gray,5f);
-
-                // The new object becomes the last object.
-                lastHitObject = newHitObject;
-            }
+            // but we previously had a hovered object, remove the hover and the Outline if not selected
+            if (hovered != null && !hovered.Selected) Destroy(hovered);
+            hovered = null;
         }
     }
 }

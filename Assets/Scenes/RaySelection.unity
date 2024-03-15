@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 705507994}
-  m_IndirectSpecularColor: {r: 0.44657874, g: 0.49641275, b: 0.5748171, a: 1}
+  m_IndirectSpecularColor: {r: 0.44657874, g: 0.49641275, b: 0.5748172, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -204,7 +204,7 @@ GameObject:
   - component: {fileID: 231384531}
   - component: {fileID: 231384530}
   m_Layer: 0
-  m_Name: Cube (1)
+  m_Name: Cube Blue
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -466,6 +466,10 @@ PrefabInstance:
       propertyPath: m_Layer
       value: 8
       objectReference: {fileID: 0}
+    - target: {fileID: 7224495772624508128, guid: f95c784933fdeb44180e112b769196f8, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -484,7 +488,7 @@ GameObject:
   - component: {fileID: 506916054}
   - component: {fileID: 506916053}
   m_Layer: 0
-  m_Name: Cube (3)
+  m_Name: Cube Red
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -734,7 +738,7 @@ GameObject:
   - component: {fileID: 856192919}
   - component: {fileID: 856192918}
   m_Layer: 0
-  m_Name: Cube (2)
+  m_Name: Cube Green
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1033,7 +1037,7 @@ GameObject:
   - component: {fileID: 948971448}
   - component: {fileID: 948971447}
   m_Layer: 0
-  m_Name: Cube
+  m_Name: Cube Yellow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1260,6 +1264,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: pfPingUI
       objectReference: {fileID: 0}
+    - target: {fileID: 4605206525904387518, guid: 8e3fdf4717f4a02428fa070c30a79d13, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 8052255548663780391, guid: 8e3fdf4717f4a02428fa070c30a79d13, type: 3}
       propertyPath: m_LocalPosition.x
       value: -668.1379
@@ -1334,7 +1342,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 440cb5d13ef9dae4b878c85d9d8b4882, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mainCamera: {fileID: 0}
 --- !u!4 &1844253811
 Transform:
   m_ObjectHideFlags: 0
