@@ -7,7 +7,7 @@ using UnityEngine.Assertions;
 
 // Combines the captation from kinect and from HandPoseBarracuda
 // it provides body points, with both left and right hand, with each articulations
-public class AdvancedTracking : BodyPointsProvider
+public class BodyPointsFromKinectAugmented : BodyPointsProvider
 {
     [SerializeField] InputMode[] inputModes = { InputMode.Color };
     [SerializeField] KinectHandle kinectHandle;
@@ -15,7 +15,21 @@ public class AdvancedTracking : BodyPointsProvider
     [SerializeField] ComputeShader minMaxShader;
     [SerializeField] ComputeShader dynamicContrastShader;
     [SerializeField] ComputeShader colorizeShader;
-
+    [SerializeField] BodySelection bodySelection = BodySelection.AnyTracked;
+    public enum BodySelection {
+        AnyTracked,
+        AnyTrackedLock,
+        IAmVulcan,
+        AtIndex0,
+        AtIndex1,
+        AtIndex2,
+        AtIndex3,
+        AtIndex4,
+        AtIndex5,
+        AtIndex6,
+        AtIndex7,
+    }
+    private int lockedBody = -1;
     private KinectHandle.Body body = null;
 
     // which video feed from kinect to send to HandPoseBarracuda
@@ -138,12 +152,12 @@ public class AdvancedTracking : BodyPointsProvider
         for (int i = 0; i < inputModes.Length; i++)
         {
             // if a child is called in a specific way, and has a MeshRenderer
-            go = transform.Find($"InspectLeft{i}");
+            go = transform.Find($"Inspect {i} Left");
             if (go != null)
             {
                 go.GetComponent<MeshRenderer>().material.mainTexture = hands[0].textures[i];
             }
-            go = transform.Find($"InspectRight{i}");
+            go = transform.Find($"Inspect {i} Right");
             if (go != null)
             {
                 go.GetComponent<MeshRenderer>().material.mainTexture = hands[1].textures[i];
@@ -151,10 +165,41 @@ public class AdvancedTracking : BodyPointsProvider
         }
     }
 
+    KinectHandle.Body SelectBody() {
+        switch (bodySelection) {
+            case BodySelection.AnyTracked:
+                if (kinectHandle.TrackedBodies.Length == 0) return null;
+                return kinectHandle.GetBody(kinectHandle.TrackedBodies[0]);
+            case BodySelection.AnyTrackedLock:
+                if (lockedBody >= 0) kinectHandle.GetBody(lockedBody);
+                if (kinectHandle.TrackedBodies.Length == 0) return null;
+                lockedBody = kinectHandle.TrackedBodies[0];
+                return kinectHandle.GetBody(lockedBody);
+            case BodySelection.AtIndex0:
+                return kinectHandle.GetBody(0);
+            case BodySelection.AtIndex1:
+                return kinectHandle.GetBody(1);
+            case BodySelection.AtIndex2:
+                return kinectHandle.GetBody(2);
+            case BodySelection.AtIndex3:
+                return kinectHandle.GetBody(3);
+            case BodySelection.AtIndex4:
+                return kinectHandle.GetBody(4);
+            case BodySelection.AtIndex5:
+                return kinectHandle.GetBody(5);
+            case BodySelection.AtIndex6:
+                return kinectHandle.GetBody(6);
+            case BodySelection.AtIndex7:
+                return kinectHandle.GetBody(7);
+        }
+        return null;
+    }
+
     void OnKinectBodiesChange()
     {
-        body = kinectHandle.SelectedBody;
-        if (body == null) return;
+        var selectedBody = SelectBody();
+        if (selectedBody == null) return;
+        body = selectedBody;
 
         foreach (var hand in hands)
         {

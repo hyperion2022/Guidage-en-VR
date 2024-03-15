@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json;
-using System.IO;
+﻿using System.IO;
 using UnityEngine;
 using UnityEngine.Assertions;
 using static BodyPointsProvider;
@@ -10,9 +9,9 @@ public class DetectionManager : MonoBehaviour
     [SerializeField] string filePath = "calibration.json";
     [SerializeField] BodyPointsProvider bodyPointsProvider;
     [SerializeField] BodyPointsVisualizer visualizer;
-    [SerializeField] GameObject cursor;
 
     public (bool valid, Vector2 pos) PointingAt = (false, Vector2.zero);
+    private float lastUpdate;
 
     private (
         Vector3 tl,
@@ -37,13 +36,12 @@ public class DetectionManager : MonoBehaviour
         screen.n = Vector3.zero;
         if (visualizer != null)
         {
-            debug.l = new Visual.Cylinder(visualizer.transform, 0.02f, Visual.blue);
-            debug.r = new Visual.Cylinder(visualizer.transform, 0.02f, Visual.blue);
-            debug.t = new Visual.Cylinder(visualizer.transform, 0.02f, Visual.blue);
-            debug.b = new Visual.Cylinder(visualizer.transform, 0.02f, Visual.blue);
+            debug.l = new Visual.Cylinder(visualizer.transform, 0.02f, Visual.blue, "Screen Left Side");
+            debug.r = new Visual.Cylinder(visualizer.transform, 0.02f, Visual.blue, "Screen Right Side");
+            debug.t = new Visual.Cylinder(visualizer.transform, 0.02f, Visual.blue, "Screen Top Side");
+            debug.b = new Visual.Cylinder(visualizer.transform, 0.02f, Visual.blue, "Screen Bottom Side");
             debug.p = new(visualizer.transform, 0.03f, Visual.blue, "Pointing at");
         }
-        Debug.Log("Detection Manager: Start");
         try { LoadFromFile(); }
         catch (FileNotFoundException) { }
         bodyPointsProvider.BodyPointsChanged += UpdatePointer;
@@ -57,7 +55,6 @@ public class DetectionManager : MonoBehaviour
         screen.n = Vector3.Cross(c.x, c.y).normalized;
         screen.w = Screen.width;
         screen.h = Screen.height;
-        Debug.Log($"Detection: Screen perpendicularity {Vector3.Dot(c.x, c.y)}");
         if (visualizer != null)
         {
             debug.l.Between = (c.tl, c.tl + c.y);
@@ -75,58 +72,23 @@ public class DetectionManager : MonoBehaviour
     }
     public void LoadFromFile() => LoadFromFile(filePath);
 
-    void UpdatePointer()
-    {
-        PointingAt = Detection();
-        if (PointingAt.valid)
-        {
-            Debug.Log($"Pointing at {PointingAt.pos}");
-            if (cursor != null)
-            {
-                Vector3 cursorPosition = new Vector3(screen.w * PointingAt.pos.x, screen.h * PointingAt.pos.y, 0);
-                cursor.transform.position = cursorPosition; // cam.ScreenToWorldPoint(cursorPosition);
-
-            }
-        }
+    void Update() {
+        if (Time.timeSinceLevelLoad - lastUpdate > 2f) PointingAt.valid = false;
     }
 
-    private (bool, Vector2) Detection()
+    void UpdatePointer()
     {
-        if (screen.x == Vector3.zero) return (false, Vector2.zero);
+        lastUpdate = Time.timeSinceLevelLoad;
+        if (screen.x == Vector3.zero) return;
         var head = (Vector3)bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
         var index = (Vector3)bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
         var (found, point) = LineOnPlaneIntersection(line: (head, (index - head).normalized), plane: (screen.tl, screen.n));
-        if (!found) return (false, Vector2.zero);
-        if (visualizer != null)
-        {
-            debug.p.At = point;
-        }
-        point -= screen.tl;
-        // Debug.Log($"Dist to origin {point.magnitude}");
-        return (true, new(
-            Vector3.Dot(screen.x, point) / screen.x.sqrMagnitude,
-            Vector3.Dot(screen.y, point) / screen.y.sqrMagnitude
-        ));
+        if (!found) return;
+        if (visualizer != null) debug.p.At = point;
+        Vector2 pos = new(
+            Vector3.Dot(screen.x, point - screen.tl) / screen.x.sqrMagnitude,
+            Vector3.Dot(screen.y, point - screen.tl) / screen.y.sqrMagnitude
+        );
+        PointingAt = (pos.x >= 0.0f && pos.x <= 1.0f && pos.y >= 0.0f && pos.y <= 1.0f, pos);
     }
-    // private Vector2 Detection()
-    // {
-    //     var head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
-    //     var rightIndex = bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
-
-    //     Vector3 pointOnScreen = pointAtZ(head, rightIndex, screenPoints[0].z);
-    //     float posX = (pointOnScreen.x - screenPoints[0].x) / (screenPoints[1].x - screenPoints[0].x);
-    //     float posY = (pointOnScreen.y - screenPoints[0].y) / (screenPoints[2].y - screenPoints[0].y);
-
-    //     // pos sur l'�cran entre 0 et 1
-    //     return new Vector2(posX, posY);
-    // }
-
-    // point at depth = z al    
-    // private Vector3 pointAtZ(Vector3 p1, Vector3 A, float z)
-    // {
-    //     Vector3 direction = A - p1;
-    //     float t = (z - p1.z) / direction.z;
-    //     Vector3 point = p1 + t * direction;
-    //     return point;
-    // }
 }

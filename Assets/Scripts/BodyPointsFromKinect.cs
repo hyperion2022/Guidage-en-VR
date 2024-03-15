@@ -30,7 +30,9 @@ public class BodyPointsFromKinect : BodyPointsProvider
     public override Vector4 GetBodyPoint(BodyPoint key)
     {
         if (!availablePoints.ContainsKey(key)) return absent;
-        var body = kinect.TrackedBody;
+        var tracked = kinect.TrackedBodies;
+        if (tracked.Length == 0) return invalid;
+        var body = kinect.GetBody(tracked[0]);
         if (body == null) return invalid;
         return body.GetAware(availablePoints[key]);
     }
