@@ -32,6 +32,11 @@ public class Visual
         {
             set { go.GetComponent<Renderer>().material.color = value; }
         }
+
+        public void Remove()
+        {
+            GameObject.Destroy(go);
+        }
     }
     public class Cylinder
     {
@@ -71,6 +76,10 @@ public class Visual
         public Color Color
         {
             set { go.GetComponent<Renderer>().material.color = value; }
+        }
+        public void Remove()
+        {
+            GameObject.Destroy(go);
         }
     }
 }

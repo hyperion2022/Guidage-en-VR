@@ -66,9 +66,7 @@ public class DetectionManager : MonoBehaviour
 
     public void LoadFromFile(string filePath)
     {
-        var c = Calibration.LoadFromFile(filePath);
-        if (c.score == 0f) return;
-        SetCalibration(c);
+        SetCalibration(Calibration.LoadFromFile(filePath));
     }
     public void LoadFromFile() => LoadFromFile(filePath);
 

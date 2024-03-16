@@ -12,7 +12,6 @@ public class CalibrationManager : MonoBehaviour
     [SerializeField] int cumulate = 20;
     [SerializeField] string filePath = "calibration.json";
     [SerializeField] BodyPointsProvider bodyPointsProvider;
-    [SerializeField] DetectionManager detectionManager;
     [SerializeField] Canvas UI;
     [SerializeField] UnityEngine.UI.Button validationButton;
     [SerializeField] UnityEngine.UI.Button restartButton;
@@ -77,7 +76,6 @@ public class CalibrationManager : MonoBehaviour
     void Start()
     {
         Assert.IsNotNull(bodyPointsProvider);
-        Assert.IsNotNull(detectionManager);
         Assert.IsNotNull(UI);
         Assert.IsNotNull(validationButton);
         Assert.IsNotNull(instructions);
@@ -85,13 +83,13 @@ public class CalibrationManager : MonoBehaviour
 
         cumulated = new();
         bodyPoints = new();
-        calibration = new()
+        calibration = null;
+        try
         {
-            score = 0f,
-            tl = Vector3.zero,
-            x = Vector3.zero,
-            y = Vector3.zero
-        };
+            calibration = Calibration.LoadFromFile(filePath);
+            calibration.Visualize(visualizer.transform);
+        }
+        catch { }
 
         state = (State.Init, Lean.Center, Point.TopLeft);
         bodyPointsProvider.BodyPointsChanged += OnBodyPointsChange;
@@ -100,6 +98,17 @@ public class CalibrationManager : MonoBehaviour
     // this function is called every time the kinect produces a new captation
     private void OnBodyPointsChange()
     {
+        // shows a cursor where the user is pointing with its finger
+        if (calibration != null)
+        {
+            var (valid, p) = calibration.PointingAt(bodyPointsProvider);
+            if (valid)
+            {
+                p = p * 2f - Vector2.one;
+                cursor.rectTransform.position = new(p.x * 100f, p.y * -100f, cursor.rectTransform.position.z);
+            }
+        }
+
         if (state.state == State.Init)
         {
             // we can leave the Init state
@@ -181,8 +190,9 @@ public class CalibrationManager : MonoBehaviour
                         saveButton.interactable = true;
                         instructions.text = "Done";
                         cursor.gameObject.SetActive(true);
+                        if (calibration != null) calibration.VisualizeRemove();
                         calibration = CalibrationFromBodyPoints();
-                        detectionManager.SetCalibration(calibration);
+                        calibration.Visualize(visualizer.transform);
                         break;
                 }
             }
@@ -203,14 +213,6 @@ public class CalibrationManager : MonoBehaviour
 
     public void Update()
     {
-        // shows a cursor where the user is pointing with its finger
-        var (valid, p) = detectionManager.PointingAt;
-        if (valid)
-        {
-            p = p * 2f - Vector2.one;
-            cursor.rectTransform.position = new(p.x * 100f, p.y * -100f, cursor.rectTransform.position.z);
-        }
-
         if (state.state == State.Wait)
         {
             // animate the blue target by making its scale slightly oscilating with time
@@ -266,9 +268,8 @@ public class CalibrationManager : MonoBehaviour
         }
     }
 
-    public struct Calibration
+    public class Calibration
     {
-        public float score;
         // position of the top left corner
         public Vector3 tl;
         // horizontal vector, with its magnitude beeing the screen's width
@@ -280,7 +281,6 @@ public class CalibrationManager : MonoBehaviour
         {
             File.WriteAllText(filePath, JsonConvert.SerializeObject(new Json
             {
-                score = score,
                 tl = new[] { tl.x, tl.y, tl.z },
                 x = new[] { x.x, x.y, x.z },
                 y = new[] { y.x, y.y, y.z },
@@ -293,7 +293,6 @@ public class CalibrationManager : MonoBehaviour
             {
                 return new()
                 {
-                    score = v.score,
                     tl = new(v.tl[0], v.tl[1], v.tl[2]),
                     x = new(v.x[0], v.x[1], v.x[2]),
                     y = new(v.y[0], v.y[1], v.y[2])
@@ -303,7 +302,6 @@ public class CalibrationManager : MonoBehaviour
             {
                 return new()
                 {
-                    score = 0f,
                     tl = Vector3.zero,
                     x = Vector3.zero,
                     y = Vector3.zero
@@ -312,7 +310,61 @@ public class CalibrationManager : MonoBehaviour
         }
         // just the equivalent of Calibration, but serializable to json
         [Serializable]
-        private struct Json { public float score; public float[] tl; public float[] x; public float[] y; }
+        private struct Json { public float[] tl; public float[] x; public float[] y; }
+
+        private (
+            Visual.Sphere p,
+            Visual.Cylinder l,
+            Visual.Cylinder r,
+            Visual.Cylinder t,
+            Visual.Cylinder b
+        ) visualize;
+
+
+        public (bool valid, Vector2 pos) PointingAt(BodyPointsProvider bodyPointsProvider)
+        {
+            if (x == Vector3.zero) return (false, Vector2.zero);
+            var head = (Vector3)bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
+            var index = (Vector3)bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
+            var (found, point) = LineOnPlaneIntersection(
+                line: (head, (index - head).normalized),
+                plane: (tl, Vector3.Cross(x, y).normalized)
+            );
+            if (!found) return (false, Vector2.zero);
+            if (visualize.p != null) visualize.p.At = point;
+            Vector2 pos = new(
+                Vector3.Dot(x, point - tl) / x.sqrMagnitude,
+                Vector3.Dot(y, point - tl) / y.sqrMagnitude
+            );
+            return (pos.x >= 0.0f && pos.x <= 1.0f && pos.y >= 0.0f && pos.y <= 1.0f, pos);
+        }
+
+        public void Visualize(Transform parent)
+        {
+            visualize = (
+                p: new(parent, 0.03f, Visual.blue, "Pointing At") { At = tl },
+                l: new Visual.Cylinder(parent, 0.02f, Visual.blue, "Screen Left Side") { Between = (tl, tl + y) },
+                r: new Visual.Cylinder(parent, 0.02f, Visual.blue, "Screen Right Side") { Between = (tl + x, tl + y + x) },
+                t: new Visual.Cylinder(parent, 0.02f, Visual.blue, "Screen Top Side") { Between = (tl, tl + x) },
+                b: new Visual.Cylinder(parent, 0.02f, Visual.blue, "Screen Bottom Side") { Between = (tl + y, tl + x + y) }
+            );
+        }
+        public void VisualizeRemove()
+        {
+            if (visualize.p != null)
+            {
+                visualize.p.Remove();
+                visualize.p = null;
+                visualize.l.Remove();
+                visualize.l = null;
+                visualize.r.Remove();
+                visualize.r = null;
+                visualize.t.Remove();
+                visualize.t = null;
+                visualize.b.Remove();
+                visualize.b = null;
+            }
+        }
     }
 
 
@@ -390,7 +442,7 @@ public class CalibrationManager : MonoBehaviour
         // they are not exactly orthogonal, but it doesn't matter
 
         var origin = center - (x + y) / 2f;
-        return new() { score = 1f, tl = origin, x = x, y = y, };
+        return new() { tl = origin, x = x, y = y, };
     }
 
     // For the given line (o + tv) and the given plane (p point on the plane, n the normal vector)

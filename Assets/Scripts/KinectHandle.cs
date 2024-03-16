@@ -42,7 +42,8 @@ public class KinectHandle : MonoBehaviour
         if (index >= body.values.Length || index < 0) return null;
         return new Body { body = body.values[index] };
     }
-    public int[] TrackedBodies;
+    public int[] TrackedBodies => trackedBodies;
+    private int[] trackedBodies;
     public event Action BodiesChanged;
     public event Action IsAvailableChanged;
 
@@ -113,7 +114,7 @@ public class KinectHandle : MonoBehaviour
             kinect.IsAvailableChanged += (_, _) => Debug.Log("Kinect Handle: " + (kinect.IsAvailable ? "Available" : "Not Available"));
         }
         body.reader = null;
-        TrackedBodies = new int[] { };
+        trackedBodies = new int[] { };
         cl.source = null;
         ir.source = null;
         cl.reader = null;
@@ -233,7 +234,7 @@ public class KinectHandle : MonoBehaviour
 
                 }
             }
-            if (trackedChanged) TrackedBodies = body.tracked
+            if (trackedChanged) trackedBodies = body.tracked
                 .Select((v, i) => (v, i))
                 .Where(p => p.v)
                 .Select(p => p.i)
