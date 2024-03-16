@@ -20,11 +20,9 @@ public class CalibrationManager : MonoBehaviour
     [SerializeField] UnityEngine.UI.Image cursor;
     [SerializeField] BodyPointsVisualizer visualizer;
     [Space]
-    [SerializeField] UnityEngine.UI.Image targetTopLeft;
-    [SerializeField] UnityEngine.UI.Image targetTopRight;
-    [SerializeField] UnityEngine.UI.Image targetBottomLeft;
-    [SerializeField] UnityEngine.UI.Image targetBottomRight;
-
+    [SerializeField] UnityEngine.UI.Image targetFg;
+    [SerializeField] UnityEngine.UI.Image targetBg;
+    [SerializeField] RectTransform topLeft;
     private static readonly string pointingMessage = "Point with your index toward the center of the blue target\nValidate (press space) and stay still until the target disapear";
     // there are 4 corners on the screen
     private enum Point { TopLeft = 0, TopRight = 1, BottomLeft = 2, BottomRight = 3, }
@@ -55,14 +53,6 @@ public class CalibrationManager : MonoBehaviour
     // - y = the vertical unit vector
     private Calibration calibration;
 
-    // a convenient way not to repeat code afterwards
-    private UnityEngine.UI.Image[] Targets => new[]{
-        targetTopLeft,
-        targetTopRight,
-        targetBottomLeft,
-        targetBottomRight,
-    };
-
     // for debug purposes, matches a color to screen corners
     static Color ColorFromPoint(Point point) => point switch
     {
@@ -79,7 +69,8 @@ public class CalibrationManager : MonoBehaviour
         Assert.IsNotNull(UI);
         Assert.IsNotNull(validationButton);
         Assert.IsNotNull(instructions);
-        foreach (var target in Targets) Assert.IsNotNull(target);
+        Assert.IsNotNull(targetFg);
+        Assert.IsNotNull(targetBg);
 
         cumulated = new();
         bodyPoints = new();
@@ -104,8 +95,7 @@ public class CalibrationManager : MonoBehaviour
             var (valid, p) = calibration.PointingAt(bodyPointsProvider);
             if (valid)
             {
-                p = p * 2f - Vector2.one;
-                cursor.rectTransform.position = new(p.x * 100f, p.y * -100f, cursor.rectTransform.position.z);
+                PlaceOnCanvasFromNormalizedPos(cursor.rectTransform, p);
             }
         }
 
@@ -128,7 +118,7 @@ public class CalibrationManager : MonoBehaviour
             cumulated.Add(((Vector3)head, (Vector3)index));
 
             // this gives a feedback to the user by shrinking the blue target
-            Targets[(int)state.point].transform.localScale = TargetScale() * Vector3.one;
+            targetBg.transform.localScale = TargetScale() * Vector3.one;
 
             // if we reach the accumulation number
             if (cumulated.Count == cumulate)
@@ -142,7 +132,7 @@ public class CalibrationManager : MonoBehaviour
                 // storing the pointing
                 bodyPoints[(state.point, state.lean)] = (cumulatedHead, cumulatedIndex);
                 // hide the blue target
-                Targets[(int)state.point].gameObject.SetActive(false);
+                targetBg.gameObject.SetActive(false);
 
                 // what will be the next state?
                 var (next, point) = state.point switch
@@ -203,12 +193,28 @@ public class CalibrationManager : MonoBehaviour
     // function returns the desired scale (shrinking) for the current accumulation
     private float TargetScale() => 1.8f * (1f - cumulated.Count / (float)(cumulate - 1));
 
+    private void PlaceOnCanvasFromNormalizedPos(RectTransform rectTransform, Vector2 pos) {
+        pos *= 2f;
+        pos -= Vector2.one;
+        pos.Scale(-topLeft.localPosition);
+        rectTransform.localPosition = new(pos.x, pos.y, rectTransform.localPosition.z);
+    }
+
     // shorthand to make the desired blue target visible
     private void SetVisualTarget()
     {
         Assert.IsTrue(state.state == State.Wait);
-        Targets[(int)state.point].rectTransform.localScale = TargetScale() * Vector3.one;
-        Targets[(int)state.point].gameObject.SetActive(true);
+        targetBg.rectTransform.localScale = TargetScale() * Vector3.one;
+        var pos = state.point switch {
+            Point.TopLeft => new Vector2(0f, 0f),
+            Point.TopRight => new Vector2(1f, 0f),
+            Point.BottomLeft => new Vector2(0f, 1f),
+            Point.BottomRight => new Vector2(1f, 1f),
+            _ => throw new InvalidOperationException()
+        };
+        PlaceOnCanvasFromNormalizedPos(targetBg.rectTransform, pos);
+        PlaceOnCanvasFromNormalizedPos(targetFg.rectTransform, pos);
+        targetBg.gameObject.SetActive(true);
     }
 
     public void Update()
@@ -216,7 +222,7 @@ public class CalibrationManager : MonoBehaviour
         if (state.state == State.Wait)
         {
             // animate the blue target by making its scale slightly oscilating with time
-            Targets[(int)state.point].transform.localScale = (TargetScale() + 0.2f * Mathf.Sin(Time.timeSinceLevelLoad * 4f)) * Vector3.one;
+            targetBg.transform.localScale = (TargetScale() + 0.2f * Mathf.Sin(Time.timeSinceLevelLoad * 4f)) * Vector3.one;
         }
         if (validationButton.interactable && Input.GetKeyDown(KeyCode.Space))
         {
