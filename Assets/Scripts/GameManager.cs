@@ -14,10 +14,12 @@ public class GameManager : MonoBehaviour
     [SerializeField] Camera cam;
     private Dictionary<GameObject, int> cubeIndices;
     private List<GameObject> cubeList;
+    private int currentIndex, nbGoodCubes;
 
     // Start is called before the first frame update
     void Start()
     {
+        currentIndex = 0;
         nbCubes = cubeParent.transform.childCount;
 
         if (nbCubes < nbDangerousCubes)
@@ -28,20 +30,20 @@ public class GameManager : MonoBehaviour
         cubeIndices = new Dictionary<GameObject, int>();
         cubeList = new List<GameObject>();
 
+        // Create list with all cubes and shuffle it
         for (int i = 0; i < nbCubes; i++)
         {
             cubeList.Add(cubeParent.transform.GetChild(i).gameObject);
         }
+        Shuffle(cubeList);
 
-        // shuffle elements
-        cubeList.OrderBy(x => UnityEngine.Random.value).ToList();
-
-        // Add Safe cubes in order
-        int nbGoodCubes = nbCubes - nbDangerousCubes;
+        // Add Safe Cube indices
+        nbGoodCubes = nbCubes - nbDangerousCubes;
         for (int i = 0; i < nbGoodCubes; i++)
         {
             cubeIndices.Add(cubeList.ElementAt(i), i);
         }
+        // Add Dangerous Cubes indices
         for (int i = nbGoodCubes; i < nbGoodCubes + nbDangerousCubes; i++)
         {
             cubeIndices.Add(cubeList.ElementAt(i), -1);
@@ -71,8 +73,35 @@ public class GameManager : MonoBehaviour
             if (hitObject != null && hitObject.tag == "Cube")
             {
                 hitObject.SetActive(false);
+                if (currentIndex == nbGoodCubes)
+                {
+                    Debug.Log("You win!");
+                }
+                else if (cubeIndices[hitObject] == -1 || cubeIndices[hitObject] != currentIndex)
+                {
+                    Debug.Log("You lose!");
+                }
+                else
+                {
+                    currentIndex++;
+                }
                 Debug.Log(cubeIndices[hitObject]);
             }
+        }
+    }
+
+    // Function to shuffle a list using the Fisher-Yates shuffle algorithm
+    // Source: chatGPT
+    public static void Shuffle<T>(List<T> list)
+    {
+        int n = list.Count;
+        while (n > 1)
+        {
+            n--;
+            int k = UnityEngine.Random.Range(0, n + 1);
+            T value = list[k];
+            list[k] = list[n];
+            list[n] = value;
         }
     }
 }
