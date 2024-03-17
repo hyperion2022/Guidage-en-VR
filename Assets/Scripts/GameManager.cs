@@ -42,13 +42,10 @@ public class GameManager : MonoBehaviour
         {
             cubeIndices.Add(cubeList.ElementAt(i), i);
         }
-        for (int i = nbGoodCubes; i < cubeIndices.Count; i++)
+        for (int i = nbGoodCubes; i < nbGoodCubes + nbDangerousCubes; i++)
         {
             cubeIndices.Add(cubeList.ElementAt(i), -1);
         }
-
-        string json = JsonConvert.SerializeObject(cubeIndices.Values, Formatting.Indented);
-        Debug.Log(json);
     }
 
     // Update is called once per frame
@@ -70,7 +67,7 @@ public class GameManager : MonoBehaviour
         {
             GameObject hitObject = hit.transform.gameObject;
 
-            // If we hit an object
+            // If we hit an object, deactivate it
             if (hitObject != null && hitObject.tag == "Cube")
             {
                 hitObject.SetActive(false);
