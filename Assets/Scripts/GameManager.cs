@@ -4,11 +4,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using TMPro;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
     [SerializeField] GameObject cubeParent;
+    [SerializeField] GameObject textParent;
     private int nbDangerousCubes = 3;
     private int nbCubes;
     [SerializeField] Camera cam;
@@ -41,12 +43,18 @@ public class GameManager : MonoBehaviour
         nbGoodCubes = nbCubes - nbDangerousCubes;
         for (int i = 0; i < nbGoodCubes; i++)
         {
-            cubeIndices.Add(cubeList.ElementAt(i), i);
+            GameObject currentCube = cubeList.ElementAt(i);
+            cubeIndices.Add(currentCube, i);
+            int initialIndex = int.Parse(currentCube.name.Substring(5));
+            textParent.transform.GetChild(initialIndex).GetComponent<TextMeshProUGUI>().text = (i + 1).ToString();
         }
         // Add Dangerous Cubes indices
         for (int i = nbGoodCubes; i < nbGoodCubes + nbDangerousCubes; i++)
         {
-            cubeIndices.Add(cubeList.ElementAt(i), -1);
+            GameObject currentCube = cubeList.ElementAt(i);
+            cubeIndices.Add(currentCube, -1);
+            int initialIndex = int.Parse(currentCube.name.Substring(5));
+            textParent.transform.GetChild(initialIndex).GetComponent<TextMeshProUGUI>().text = "Bomb";
         }
     }
 
