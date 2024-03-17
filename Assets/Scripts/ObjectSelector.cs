@@ -1,10 +1,13 @@
 using UnityEngine;
+using UnityEngine.Assertions;
 using Calibration = CalibrationManager.Calibration;
 
 // https://docs.unity3d.com/Manual/CameraRays.html
 // https://docs.unity3d.com/ScriptReference/Debug.DrawLine.html
 public class ObjectSelector : MonoBehaviour
 {
+    [SerializeField] bool hovering = false;
+    [SerializeField] new Camera camera;
     [SerializeField] BodyPointsProvider bodyPointsProvider = null;
     [SerializeField] string calibrationFilePath = "calibration.json";
     [SerializeField] RectTransform topLeft;
@@ -12,22 +15,25 @@ public class ObjectSelector : MonoBehaviour
 
     public class SelectedObject : Outline
     {
-        public bool Selected {
+        public bool Selected
+        {
             get { return selected; }
-            set {
+            set
+            {
                 selected = value;
                 OutlineColor = value ? Color.yellow : Color.white;
             }
         }
         private bool selected;
 
-        public SelectedObject() {
+        public SelectedObject()
+        {
             OutlineMode = Mode.OutlineAll;
             OutlineWidth = 10f;
             selected = false;
         }
     }
-    
+
     private Calibration calibration = null;
     // when the mouse is hovering an object, we store a reference to it
     private SelectedObject hovered = null;
@@ -36,6 +42,7 @@ public class ObjectSelector : MonoBehaviour
 
     void Start()
     {
+        Assert.IsNotNull(camera);
         try { calibration = Calibration.LoadFromFile(calibrationFilePath); }
         catch { }
         if (bodyPointsProvider != null)
@@ -59,7 +66,7 @@ public class ObjectSelector : MonoBehaviour
         if (valid)
         {
             PlaceOnCanvasFromNormalizedPos(cursor, pos);
-            pointingAt = new(pos.x * Camera.main.pixelWidth, (1f - pos.y) * Camera.main.pixelHeight);
+            pointingAt = new(pos.x * camera.pixelWidth, (1f - pos.y) * camera.pixelHeight);
         }
     }
 
@@ -67,12 +74,13 @@ public class ObjectSelector : MonoBehaviour
     {
         bool interact = Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Mouse0);
         if (!poiting) pointingAt = (Vector2)Input.mousePosition;
-        UpdatePointedObject(pointingAt, interact);
+        if (hovering) UpdatePointedObject(pointingAt, interact);
+        else if (interact) UpdatePointedObject(pointingAt);
     }
 
     void UpdatePointedObject(Vector2 screenPos, bool interact)
     {
-        if (Physics.Raycast(Camera.main.ScreenPointToRay(screenPos), out var hit))
+        if (Physics.Raycast(camera.ScreenPointToRay(screenPos), out var hit))
         {
             // if the hovered object is no longer being pointed at, then remove outline if not selected
             if (
@@ -96,6 +104,21 @@ public class ObjectSelector : MonoBehaviour
             // but we previously had a hovered object, remove the hover and the Outline if not selected
             if (hovered != null && !hovered.Selected) Destroy(hovered);
             hovered = null;
+        }
+    }
+
+    void UpdatePointedObject(Vector2 screenPos)
+    {
+        if (Physics.Raycast(camera.ScreenPointToRay(screenPos), out var hit))
+        {
+            if (hit.transform.TryGetComponent(out SelectedObject outline))
+            {
+                Destroy(outline);
+            }
+            else
+            {
+                hit.transform.gameObject.AddComponent<SelectedObject>().Selected = true;
+            }
         }
     }
 }
