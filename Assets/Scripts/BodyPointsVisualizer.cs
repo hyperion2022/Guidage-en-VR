@@ -123,7 +123,6 @@ public class BodyPointsVisualizer : MonoBehaviour
         [BodyPoint.RightPinky1] = 0.03f,
     };
 
-
     void Start()
     {
         Assert.IsNotNull(bodyPointsProvider);

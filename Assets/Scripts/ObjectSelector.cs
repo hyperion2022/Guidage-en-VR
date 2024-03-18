@@ -7,6 +7,7 @@ using Calibration = CalibrationManager.Calibration;
 public class ObjectSelector : MonoBehaviour
 {
     [SerializeField] bool hovering = false;
+    [SerializeField] float sizeLimit = 10f;
     [SerializeField] new Camera camera;
     [SerializeField] BodyPointsProvider bodyPointsProvider = null;
     [SerializeField] string calibrationFilePath = "calibration.json";
@@ -80,7 +81,7 @@ public class ObjectSelector : MonoBehaviour
 
     void UpdatePointedObject(Vector2 screenPos, bool interact)
     {
-        if (Physics.Raycast(camera.ScreenPointToRay(screenPos), out var hit))
+        if (Physics.Raycast(camera.ScreenPointToRay(screenPos), out var hit) && SizeIsInferiorToLimit(hit.transform, sizeLimit))
         {
             // if the hovered object is no longer being pointed at, then remove outline if not selected
             if (
@@ -109,7 +110,7 @@ public class ObjectSelector : MonoBehaviour
 
     void UpdatePointedObject(Vector2 screenPos)
     {
-        if (Physics.Raycast(camera.ScreenPointToRay(screenPos), out var hit))
+        if (Physics.Raycast(camera.ScreenPointToRay(screenPos), out var hit) && SizeIsInferiorToLimit(hit.transform, sizeLimit))
         {
             if (hit.transform.TryGetComponent(out SelectedObject outline))
             {
@@ -120,5 +121,13 @@ public class ObjectSelector : MonoBehaviour
                 hit.transform.gameObject.AddComponent<SelectedObject>().Selected = true;
             }
         }
+    }
+
+    static bool SizeIsInferiorToLimit(Transform go, float limit)
+    {
+        var bounds = new Bounds(go.position, Vector3.zero);
+        foreach (var collider in go.GetComponents<Collider>()) bounds.Encapsulate(collider.bounds);
+        var size = bounds.size.magnitude;
+        return size > 0f && size < limit;
     }
 }
