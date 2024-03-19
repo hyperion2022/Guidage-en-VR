@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 855907581465305505}
   - component: {fileID: 4149318321383933325}
   - component: {fileID: 8334529740477978073}
-  m_Layer: 6
+  m_Layer: 8
   m_Name: pfPingWorld
   m_TagString: ping
   m_Icon: {fileID: 0}
@@ -91,7 +91,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 21300000, guid: 8bf4b5684c2c2db41add3a46ebce6fad, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 3f917ab1e965abe45a39b91d8ed9c02b, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
