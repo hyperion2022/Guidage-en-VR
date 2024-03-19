@@ -112,10 +112,10 @@ public class CalibrationManager : MonoBehaviour
             var head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
             var index = bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
             // ignore if not properly tracked
-            if (!IsTracked(head)) return;
-            if (!IsTracked(index)) return;
+            if (head.state != PointState.Tracked) return;
+            if (index.state != PointState.Tracked) return;
             // cumulate it
-            cumulated.Add(((Vector3)head, (Vector3)index));
+            cumulated.Add((head.pos, index.pos));
 
             // this gives a feedback to the user by shrinking the blue target
             targetBg.transform.localScale = TargetScale() * Vector3.one;
@@ -330,10 +330,12 @@ public class CalibrationManager : MonoBehaviour
         public (bool valid, Vector2 pos) PointingAt(BodyPointsProvider bodyPointsProvider)
         {
             if (x == Vector3.zero) return (false, Vector2.zero);
-            var head = (Vector3)bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
-            var index = (Vector3)bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
+            var head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
+            var index = bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
+            if (head.state != PointState.Tracked) return (false, Vector2.zero);
+            if (index.state != PointState.Tracked) return (false, Vector2.zero);
             var (found, point) = LineOnPlaneIntersection(
-                line: (head, (index - head).normalized),
+                line: (head.pos, (index.pos - head.pos).normalized),
                 plane: (tl, Vector3.Cross(x, y).normalized)
             );
             if (!found) return (false, Vector2.zero);

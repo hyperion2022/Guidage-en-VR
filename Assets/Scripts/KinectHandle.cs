@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Assertions;
 using Windows.Kinect;
@@ -8,43 +9,40 @@ using Vector4 = UnityEngine.Vector4;
 
 // https://github.com/Kinect/Docs/blob/master/Kinect4Windows2.0/k4w2/Reference/Kinect_for_Windows_v2/Kinect/KinectSensor_Class.md
 
-public class KinectHandle : MonoBehaviour
+public class KinectHandle : BodyPointsProvider
 {
     [SerializeField] bool EnableLogs;
     [SerializeField] ComputeShader flipShader;
     [SerializeField] ComputeShader cropShader;
     public bool IsAvailable => kinect.IsAvailable;
 
-    public class Body
+    public struct Body
     {
         public Windows.Kinect.Body body;
 
-        public Vector3 Get(JointType joint)
+        public (PointState state, Vector3 pos) Get(JointType joint)
         {
-            var jp = body.Joints[joint].Position;
-            return new(jp.X, jp.Y, jp.Z);
-        }
-        public Vector4 GetAware(JointType joint)
-        {
-            var jp = body.Joints[joint].Position;
-            var w = body.Joints[joint].TrackingState switch
+            if (body == null) return (PointState.NotProvided, Vector3.zero);
+            var pos = body.Joints[joint].Position;
+            var state = body.Joints[joint].TrackingState switch
             {
-                TrackingState.NotTracked => 3,
-                TrackingState.Tracked => 1,
-                TrackingState.Inferred => 2,
-                _ => 1,
+                TrackingState.NotTracked => PointState.NotTracked,
+                TrackingState.Tracked => PointState.Tracked,
+                TrackingState.Inferred => PointState.Inferred,
+                _ => PointState.NotProvided,
             };
-            return new(jp.X, jp.Y, jp.Z, w);
+            return (state, new(pos.X, pos.Y, pos.Z));
         }
+
+        public static Body NotProvided = new(){ body = null };
     }
     public Body GetBody(int index)
     {
-        if (index >= body.values.Length || index < 0) return null;
+        if (index >= body.values.Length || index < 0) throw new IndexOutOfRangeException();
         return new Body { body = body.values[index] };
     }
     public int[] TrackedBodies => trackedBodies;
     private int[] trackedBodies;
-    public event Action BodiesChanged;
     public event Action IsAvailableChanged;
 
     private (Source source, ColorFrameReader reader) cl;
@@ -113,14 +111,13 @@ public class KinectHandle : MonoBehaviour
             Debug.Log("Kinect Handle: Waiting availability ...");
             kinect.IsAvailableChanged += (_, _) => Debug.Log("Kinect Handle: " + (kinect.IsAvailable ? "Available" : "Not Available"));
         }
-        body.reader = null;
+        OpenBody();
         trackedBodies = new int[] { };
         cl.source = null;
         ir.source = null;
         cl.reader = null;
         ir.reader = null;
         kinect.IsAvailableChanged += (_, arg) => IsAvailableChanged?.Invoke();
-
     }
 
     public Source Cl => GetCl();
@@ -193,15 +190,14 @@ public class KinectHandle : MonoBehaviour
         return ir.source;
     }
 
-    public void OpenBody()
+    private void OpenBody()
     {
-        if (body.reader != null) return;
+        Assert.IsNull(body.reader);
         Assert.IsNotNull(kinect);
         body.reader = kinect.BodyFrameSource.OpenReader();
         Assert.IsNotNull(body.reader);
         body.values = new Windows.Kinect.Body[kinect.BodyFrameSource.BodyCount];
         body.tracked = body.values.Select(_ => false).ToArray();
-        if (EnableLogs) Debug.Log($"Kinect Handle: Tracking state SEARCHING ...");
         body.reader.FrameArrived += (_, arg) =>
         {
             var frame = arg.FrameReference.AcquireFrame();
@@ -219,8 +215,6 @@ public class KinectHandle : MonoBehaviour
                     {
                         body.tracked[i] = true;
                         trackedChanged = true;
-                        if (EnableLogs) Debug.Log($"Kinect Handle: Tracking state FOUND {i}");
-
                     }
                 }
                 else
@@ -229,7 +223,6 @@ public class KinectHandle : MonoBehaviour
                     {
                         body.tracked[i] = false;
                         trackedChanged = true;
-                        if (EnableLogs) Debug.Log($"Kinect Handle: Tracking state LOST {i}");
                     }
 
                 }
@@ -239,19 +232,19 @@ public class KinectHandle : MonoBehaviour
                 .Where(p => p.v)
                 .Select(p => p.i)
                 .ToArray();
-            if (bodiesChanged) BodiesChanged?.Invoke();
+            if (trackedChanged && EnableLogs)
+            {
+                var bodies = JsonConvert.SerializeObject(trackedBodies);
+                Debug.Log($"Kinect Handle: Tracking bodies {bodies}");
+            }
+            if (bodiesChanged) RaiseBodyPointsChanged();
         };
     }
 
-    public static Vector3 ToVector3(Windows.Kinect.Joint joint) => new(joint.Position.X, joint.Position.Y, joint.Position.Z);
-
     void OnDestroy()
     {
-        if (body.reader != null)
-        {
-            body.reader.Dispose();
-            body.reader = null;
-        }
+        body.reader.Dispose();
+        body.reader = null;
         if (cl.reader != null)
         {
             cl.reader.Dispose();
@@ -268,4 +261,29 @@ public class KinectHandle : MonoBehaviour
         }
         kinect = null;
     }
+    private static readonly Dictionary<BodyPoint, JointType> providedPoints = new()
+    {
+        [BodyPoint.Head] = JointType.Head,
+        [BodyPoint.Neck] = JointType.Neck,
+        [BodyPoint.SpineShoulder] = JointType.SpineShoulder,
+        [BodyPoint.LeftShoulder] = JointType.ShoulderLeft,
+        [BodyPoint.RightShoulder] = JointType.ShoulderRight,
+        [BodyPoint.LeftElbow] = JointType.ElbowLeft,
+        [BodyPoint.RightElbow] = JointType.ElbowRight,
+        [BodyPoint.LeftWrist] = JointType.WristLeft,
+        [BodyPoint.RightWrist] = JointType.WristRight,
+        [BodyPoint.LeftIndex] = JointType.HandTipLeft,
+        [BodyPoint.RightIndex] = JointType.HandTipRight,
+        [BodyPoint.LeftIndex1] = JointType.HandLeft,
+        [BodyPoint.RightIndex1] = JointType.HandRight,
+        [BodyPoint.LeftThumb] = JointType.ThumbLeft,
+        [BodyPoint.RightThumb] = JointType.ThumbRight,
+    };
+    public override (PointState, Vector3) GetBodyPoint(BodyPoint key)
+    {
+        if (!providedPoints.ContainsKey(key)) return (PointState.NotProvided, Vector3.zero);
+        if (TrackedBodies.Length == 0) return (PointState.NotProvided, Vector3.zero);
+        return GetBody(TrackedBodies[0]).Get(providedPoints[key]);
+    }
+    public override BodyPoint[] ProvidedPoints => providedPoints.Keys.ToArray();
 }

@@ -4,6 +4,7 @@ using UnityEngine;
 using Newtonsoft.Json;
 using System.Linq;
 using static BodyPointsProvider;
+using System;
 
 public class BodyPointsRecorder : MonoBehaviour
 {
@@ -15,23 +16,23 @@ public class BodyPointsRecorder : MonoBehaviour
 
     private bool waitCaptation;
 
-    private List<Vector4[]> recorded;
+    private List<(PointState state, Vector3 pos)[]> recorded;
     public void Start()
     {
         waitCaptation = true;
-        recorded = new List<Vector4[]>();
+        recorded = new List<(PointState, Vector3)[]>();
         InvokeRepeating("CallBack", 0f, 1f / capturesPerSecond);
         // Debug.Log(JsonConvert.SerializeObject(recorded));
     }
 
     public void CallBack()
     {
-        var points = bodyPointsProvider.AvailablePoints.Select(bodyPointsProvider.GetBodyPoint).ToArray();
+        var points = bodyPointsProvider.ProvidedPoints.Select(bodyPointsProvider.GetBodyPoint).ToArray();
         if (waitCaptation)
         {
             foreach (var point in points)
             {
-                if (IsTracked(point)) waitCaptation = false;
+                if (point.state == PointState.Tracked) waitCaptation = false;
             }
         }
         else
@@ -47,8 +48,14 @@ public class BodyPointsRecorder : MonoBehaviour
             File.WriteAllText(outputFilePath, JsonConvert.SerializeObject(new Recorded
             {
                 hertz = capturesPerSecond,
-                columns = bodyPointsProvider.AvailablePoints.Select(v => v.ToString()).ToArray(),
-                data = recorded.Select(v => v.Select(v => new float[] { v.x, v.y, v.z, v.w }).ToArray()).ToArray(),
+                columns = bodyPointsProvider.ProvidedPoints.Select(v => v.ToString()).ToArray(),
+                data = recorded.Select(v => v.Select(v => new float[] { v.pos.x, v.pos.y, v.pos.z, v.state switch {
+                    PointState.NotProvided => 0f,
+                    PointState.Tracked => 1f,
+                    PointState.Inferred => 2f,
+                    PointState.NotTracked => 3f,
+                    _ => throw new InvalidOperationException()
+                }}).ToArray()).ToArray(),
             }));
         }
     }

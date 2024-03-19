@@ -4,6 +4,8 @@ using JointType = Windows.Kinect.JointType;
 using System.Linq;
 using System.Collections.Generic;
 using UnityEngine.Assertions;
+using System;
+
 
 // Combines the captation from kinect and from HandPoseBarracuda
 // it provides body points, with both left and right hand, with each articulations
@@ -16,7 +18,8 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
     [SerializeField] ComputeShader dynamicContrastShader;
     [SerializeField] ComputeShader colorizeShader;
     [SerializeField] BodySelection bodySelection = BodySelection.AnyTracked;
-    public enum BodySelection {
+    public enum BodySelection
+    {
         AnyTracked,
         AnyTrackedLock,
         IAmVulcan,
@@ -29,8 +32,9 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
         AtIndex6,
         AtIndex7,
     }
+    const int KERNEL_SIZE = 512;
     private int lockedBody = -1;
-    private KinectHandle.Body body = null;
+    private KinectHandle.Body body = KinectHandle.Body.NotProvided;
 
     // which video feed from kinect to send to HandPoseBarracuda
     public enum InputMode
@@ -42,13 +46,13 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
         Combined,
     }
 
+    // when cropping image on hand center, how much distance (m) from center to side of cropping
+    private const float BOUNDING_BOX_RADIUS = 0.18f;
     private class Hand
     {
-        // which hand, for humans from planet earth, 0 for left hand, 1 for right
-        // sorry, we don't support non-binary hands, but we strive to be more inclusive in the future
-        public int index;
         // holds the different compute shaders and buffer for HandPoseBarracuda hand detection
         public HandTracking[] pipelines;
+        public (float min, float max) handedness;
         public Vector3 pos;
         // which kinect joint to query for hand center
         public JointType center;
@@ -56,13 +60,14 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
         public JointType wrist;
         public RenderTexture[] textures;
         // where we store data outputed by HandPoseBarracuda
-        public Vector4[] points;
+        public (PointState state, Vector3 pos)[] points;
         // the score is used to choose weither to update or not the positions:
         // - the score is reducing by itself over time
         // - we only update if the new positions have a better score
         public float score;
     }
-    private Hand[] hands;
+    private Hand[] Hands => new[] { hand.left, hand.right };
+    private (Hand left, Hand right) hand;
     private RenderTexture minMax1;
     private RenderTexture minMax2;
 
@@ -84,29 +89,28 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
         cl = null;
         minMax1 = new RenderTexture(256, 256, 0) { enableRandomWrite = true };
         minMax2 = new RenderTexture(256, 256, 0) { enableRandomWrite = true };
-        hands = new Hand[]{
-            new(){
-                index = 0,
-                pipelines = inputModes.Select(_ => new HandTracking(resourceSet)).ToArray(),
-                textures = inputModes.Select(_ => new RenderTexture(512, 512, 0){enableRandomWrite = true}).ToArray(),
-                pos = Vector3.zero,
-                center = JointType.HandLeft,
-                wrist = JointType.WristLeft,
-                points = Enumerable.Repeat(absent, 21).ToArray(),
-                score = 0.7f,
-            },
-            new(){
-                index = 1,
-                pipelines = inputModes.Select(_ => new HandTracking(resourceSet)).ToArray(),
-                textures = inputModes.Select(_ => new RenderTexture(512, 512, 0){enableRandomWrite = true}).ToArray(),
-                pos = Vector3.zero,
-                center = JointType.HandRight,
-                wrist = JointType.WristRight,
-                points = Enumerable.Repeat(absent, 21).ToArray(),
-                score = 0.7f,
-            },
+        hand.left = new()
+        {
+            pipelines = inputModes.Select(_ => new HandTracking(resourceSet)).ToArray(),
+            handedness = (min: 0.8f, max: 1.2f),// HandPoseBarracuda gives handedness as a value around 1f for left hand
+            textures = inputModes.Select(_ => new RenderTexture(KERNEL_SIZE, KERNEL_SIZE, 0) { enableRandomWrite = true }).ToArray(),
+            pos = Vector3.zero,
+            center = JointType.HandLeft,
+            wrist = JointType.WristLeft,
+            points = Enumerable.Repeat((PointState.NotProvided, Vector3.zero), HandTracking.KeyPointCount).ToArray(),
+            score = 0.0f,
         };
-        kinectHandle.OpenBody();
+        hand.right = new()
+        {
+            pipelines = inputModes.Select(_ => new HandTracking(resourceSet)).ToArray(),
+            handedness = (min: -0.2f, max: 0.2f),// HandPoseBarracuda gives handedness as a value around 0f for right hand
+            textures = inputModes.Select(_ => new RenderTexture(KERNEL_SIZE, KERNEL_SIZE, 0){enableRandomWrite = true}).ToArray(),
+            pos = Vector3.zero,
+            center = JointType.HandRight,
+            wrist = JointType.WristRight,
+            points = Enumerable.Repeat((PointState.NotProvided, Vector3.zero), HandTracking.KeyPointCount).ToArray(),
+            score = 0.0f,
+        };
 
         // we only open the color or infrared video feeds if we use them
         // this is depending on the desired input mode
@@ -145,7 +149,7 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
             ir.Changed += HandAnalysis;
         }
 
-        kinectHandle.BodiesChanged += OnKinectBodiesChange;
+        kinectHandle.BodyPointsChanged += OnKinectBodiesChange;
 
         // allows inspection of internal render textures
         Transform go;
@@ -155,65 +159,74 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
             go = transform.Find($"Inspect {i} Left");
             if (go != null)
             {
-                go.GetComponent<MeshRenderer>().material.mainTexture = hands[0].textures[i];
+                go.GetComponent<MeshRenderer>().material.mainTexture = hand.left.textures[i];
             }
             go = transform.Find($"Inspect {i} Right");
             if (go != null)
             {
-                go.GetComponent<MeshRenderer>().material.mainTexture = hands[1].textures[i];
+                go.GetComponent<MeshRenderer>().material.mainTexture = hand.right.textures[i];
             }
         }
     }
 
-    KinectHandle.Body SelectBody() {
-        switch (bodySelection) {
+    int SelectBody()
+    {
+        switch (bodySelection)
+        {
             case BodySelection.AnyTracked:
-                if (kinectHandle.TrackedBodies.Length == 0) return null;
-                return kinectHandle.GetBody(kinectHandle.TrackedBodies[0]);
+                if (kinectHandle.TrackedBodies.Length == 0) return -1;
+                return kinectHandle.TrackedBodies[0];
             case BodySelection.AnyTrackedLock:
-                if (lockedBody >= 0) kinectHandle.GetBody(lockedBody);
-                if (kinectHandle.TrackedBodies.Length == 0) return null;
+                if (lockedBody >= 0) return lockedBody;
+                if (kinectHandle.TrackedBodies.Length == 0) return -1;
                 lockedBody = kinectHandle.TrackedBodies[0];
-                return kinectHandle.GetBody(lockedBody);
+                return lockedBody;
             case BodySelection.AtIndex0:
-                return kinectHandle.GetBody(0);
+                return 0;
             case BodySelection.AtIndex1:
-                return kinectHandle.GetBody(1);
+                return 1;
             case BodySelection.AtIndex2:
-                return kinectHandle.GetBody(2);
+                return 2;
             case BodySelection.AtIndex3:
-                return kinectHandle.GetBody(3);
+                return 3;
             case BodySelection.AtIndex4:
-                return kinectHandle.GetBody(4);
+                return 4;
             case BodySelection.AtIndex5:
-                return kinectHandle.GetBody(5);
+                return 5;
             case BodySelection.AtIndex6:
-                return kinectHandle.GetBody(6);
+                return 6;
             case BodySelection.AtIndex7:
-                return kinectHandle.GetBody(7);
+                return 7;
         }
-        return null;
+        return -1;
     }
 
+    private static PointState PointStateFromScore(float score)
+    {
+        if (score > 0.8f) return PointState.Tracked;
+        if (score > 0.7f) return PointState.Inferred;
+        return PointState.NotTracked;
+    }
     void OnKinectBodiesChange()
     {
         var selectedBody = SelectBody();
-        if (selectedBody == null) return;
-        body = selectedBody;
+        if (selectedBody == -1) return;
+        body = kinectHandle.GetBody(selectedBody);
 
-        foreach (var hand in hands)
+        foreach (var hand in Hands)
         {
-            var center = body.GetAware(hand.center);
-            var wrist = body.GetAware(hand.wrist);
-            if (IsTracked(center) && IsTracked(wrist))
+            var center = body.Get(hand.center);
+            var wrist = body.Get(hand.wrist);
+            if (center.state == PointState.Tracked && wrist.state == PointState.Tracked)
             {
                 // when Kinect gives a new hand position
-                hand.pos = (Vector3)center;
-                var dif = (Vector3)wrist - (Vector3)hand.points[0];
-                for (int i = 0; i < 21; i++)
+                hand.pos = center.pos;
+                var dif = wrist.pos - hand.points[0].pos;
+                // we update all non-kinect point to move accordingly to Kinect info
+                for (int i = 0; i < HandTracking.KeyPointCount; i++)
                 {
-                    // we update all non-kinect point to move accordingly to Kinect info
-                    hand.points[i] += new Vector4(dif.x, dif.y, dif.z, 0f);
+                    hand.points[i].state = PointStateFromScore(hand.score);
+                    hand.points[i].pos += dif;
                 }
             }
         }
@@ -222,71 +235,36 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
 
     void DynamicConstrast(Texture texture)
     {
-        Assert.IsTrue(texture.width == 512);
-        Assert.IsTrue(texture.height == 512);
+        Assert.IsTrue(texture.width == KERNEL_SIZE);
+        Assert.IsTrue(texture.height == KERNEL_SIZE);
 
-        // 256
-        minMaxShader.SetTexture(0, "input", texture);
-        minMaxShader.SetTexture(0, "output", minMax1);
-        minMaxShader.Dispatch(0, 256 / 8, 256 / 8, 1);
-
-        // 128
-        minMaxShader.SetTexture(0, "input", minMax1);
-        minMaxShader.SetTexture(0, "output", minMax2);
-        minMaxShader.Dispatch(0, 128 / 8, 128 / 8, 1);
-
-        // 64
-        minMaxShader.SetTexture(0, "input", minMax2);
-        minMaxShader.SetTexture(0, "output", minMax1);
-        minMaxShader.Dispatch(0, 64 / 8, 64 / 8, 1);
-
-        // 32
-        minMaxShader.SetTexture(0, "input", minMax1);
-        minMaxShader.SetTexture(0, "output", minMax2);
-        minMaxShader.Dispatch(0, 32 / 8, 32 / 8, 1);
-
-        // 16
-        minMaxShader.SetTexture(0, "input", minMax2);
-        minMaxShader.SetTexture(0, "output", minMax1);
-        minMaxShader.Dispatch(0, 16 / 8, 16 / 8, 1);
-
-        // 8
-        minMaxShader.SetTexture(0, "input", minMax1);
-        minMaxShader.SetTexture(0, "output", minMax2);
-        minMaxShader.Dispatch(0, 8 / 8, 8 / 8, 1);
-
-        // 4
-        minMaxShader.SetTexture(0, "input", minMax2);
-        minMaxShader.SetTexture(0, "output", minMax1);
-        minMaxShader.Dispatch(0, 1, 1, 1);
-
-        // 2
-        minMaxShader.SetTexture(0, "input", minMax1);
-        minMaxShader.SetTexture(0, "output", minMax2);
-        minMaxShader.Dispatch(0, 1, 1, 1);
-
-        // 1
-        minMaxShader.SetTexture(0, "input", minMax2);
-        minMaxShader.SetTexture(0, "output", minMax1);
-        minMaxShader.Dispatch(0, 1, 1, 1);
+        var readFrom = texture;
+        var swap = false;
+        for (int i = KERNEL_SIZE / 2; i > 0; i /= 2, swap = !swap)
+        {
+            var size = Math.Max(i / 8, 1);
+            var writeTo = swap ? minMax1 : minMax2;
+            minMaxShader.SetTexture(0, "input", readFrom);
+            minMaxShader.SetTexture(0, "output", writeTo);
+            minMaxShader.Dispatch(0, size, size, 1);
+            readFrom = writeTo;
+        }
 
         // apply dynamic contrast by dividing by the max value
         dynamicContrastShader.SetTexture(0, "result", texture);
-        dynamicContrastShader.SetTexture(0, "max", minMax1);
-        dynamicContrastShader.Dispatch(0, 512 / 8, 512 / 8, 1);
+        dynamicContrastShader.SetTexture(0, "max", readFrom);
+        dynamicContrastShader.Dispatch(0, KERNEL_SIZE / 8, KERNEL_SIZE / 8, 1);
     }
 
     // when receiving new frame from video feed, launch HandPoseBarracuda analysis on it
     void HandAnalysis()
     {
         // reduce hand captation score over time, meaning, old data as lower score
-        hands[0].score = Mathf.Max(hands[0].score - 0.1f, 0.7f);
-        hands[1].score = Mathf.Max(hands[1].score - 0.1f, 0.7f);
-
-        if (body == null) return;
+        hand.left.score = Mathf.Max(hand.left.score - 0.05f, 0.7f);
+        hand.right.score = Mathf.Max(hand.right.score - 0.05f, 0.7f);
 
         // if the previous computation is still ongoing, just don't start a new
-        foreach (var hand in hands)
+        foreach (var hand in Hands)
         {
             foreach (var pipeline in hand.pipelines)
             {
@@ -297,7 +275,7 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
         // one analysis is ran per hands and per input method
         // the effect of having several input methods in parallel, is a competitive captation
         // were we only take the one giving the better score
-        foreach (var hand in hands)
+        foreach (var (hand, index) in Hands.Select((v, i) => (v, i)))
         {
             for (int i = 0; i < inputModes.Length; i++)
             {
@@ -308,22 +286,22 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
                 switch (mode)
                 {
                     case InputMode.Color:
-                        cl.Crop(hand.pos, 0.18f, texture);
+                        cl.Crop(hand.pos, BOUNDING_BOX_RADIUS, texture);
                         break;
                     case InputMode.Infrared:
-                        ir.Crop(hand.pos, 0.18f, texture);
+                        ir.Crop(hand.pos, BOUNDING_BOX_RADIUS, texture);
                         // on infrared, we have to apply a dynamic contrast filter
                         // it makes sure, the maximum value is always 1.0
                         DynamicConstrast(texture);
                         break;
                     case InputMode.Combined:
-                        ir.Crop(hand.pos, 0.18f, texture);
+                        ir.Crop(hand.pos, BOUNDING_BOX_RADIUS, texture);
                         DynamicConstrast(texture);
                         // on combined, we augment the infrared with color information from color video feed
                         colorizeShader.SetTexture(0, "color", cl.texture);
-                        colorizeShader.SetVector("box", cl.BoundingBox(hand.pos, 0.18f));
+                        colorizeShader.SetVector("box", cl.BoundingBox(hand.pos, BOUNDING_BOX_RADIUS));
                         colorizeShader.SetTexture(0, "result", texture);
-                        colorizeShader.Dispatch(0, 512 / 8, 512 / 8, 1);
+                        colorizeShader.Dispatch(0, KERNEL_SIZE / 8, KERNEL_SIZE / 8, 1);
                         break;
                 }
                 // now the HandPoseBarracude analysis is launched
@@ -334,7 +312,7 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
                     // only update if score is better then previous and handedness is correct
                     if (pipeline.Score <= hand.score) return;
                     var h = pipeline.Handedness;
-                    if (hand.index == 0 ? (h > 0.8 && h < 1.2) : (h > -0.2 && h < 0.2))
+                    if (h > hand.handedness.min && h < hand.handedness.max)
                     {
                         hand.score = pipeline.Score;
                         // to properly scale the hand, we naively assume the distance
@@ -346,14 +324,16 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
                         {
                             var scale = 0.1f / dist;
 
-                            var wristAbs = body.Get(hand.wrist);
+                            var wristAbs = body.Get(hand.wrist).pos;
                             var wristRel = pipeline.GetWrist;
-                            for (int i = 0; i < 21; i++)
+                            for (int i = 0; i < HandTracking.KeyPointCount; i++)
                             {
                                 // each point is positioned in Kinect space
                                 var posRel = (Vector3)pipeline.HandPoints[i];
-                                var point = (posRel - wristRel) * scale + wristAbs;
-                                hand.points[i] = Tracked(point);
+                                hand.points[i] = (
+                                    PointStateFromScore(hand.score),
+                                    (posRel - wristRel) * scale + wristAbs
+                                );
                             }
                             RaiseBodyPointsChanged();
                         }
@@ -365,7 +345,7 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
 
     void OnDestroy()
     {
-        kinectHandle.BodiesChanged -= OnKinectBodiesChange;
+        kinectHandle.BodyPointsChanged -= OnKinectBodiesChange;
         if (cl != null)
         {
             cl.Changed -= HandAnalysis;
@@ -374,7 +354,7 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
         {
             ir.Changed -= HandAnalysis;
         }
-        foreach (var hand in hands)
+        foreach (var hand in Hands)
         {
             foreach (var pipeline in hand.pipelines)
             {
@@ -385,26 +365,24 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
 
     // because, this class combines different body points detectors,
     // we need to pipe the request depending on what point is requested
-    public override Vector4 GetBodyPoint(BodyPoint key)
+    public override (PointState, Vector3) GetBodyPoint(BodyPoint key)
     {
-        if (!availablePoints.ContainsKey(key))
+        if (!providedPoints.ContainsKey(key))
         {
-            return absent;
+            return (PointState.NotProvided, Vector3.zero);
         }
-        var (hand, at) = availablePoints[key];
-        if (hand == 2)
+        var (origin, index) = providedPoints[key];
+        return origin switch
         {
-            if (body == null) return absent;
-            return Tracked(body.Get(passThrough[at]));
-        }
-        else
-        {
-            return hands[hand].points[at];
-        }
+            PointOrigin.HandLeft => hand.left.points[index],
+            PointOrigin.HandRight => hand.right.points[index],
+            PointOrigin.Body => body.Get(passThrough[index]),
+            _ => throw new InvalidOperationException()
+        };
     }
 
 
-    public override BodyPoint[] AvailablePoints => availablePoints.Keys.ToArray();
+    public override BodyPoint[] ProvidedPoints => providedPoints.Keys.ToArray();
 
 
     // the first int:
@@ -415,59 +393,60 @@ public class BodyPointsFromKinectAugmented : BodyPointsProvider
     // LeftHand(HandPoint)
     // RightHand(HandPoint)
     // Kinect()
-    Dictionary<BodyPoint, (int, int)> availablePoints = new()
+    enum PointOrigin { HandLeft, HandRight, Body };
+    Dictionary<BodyPoint, (PointOrigin from, int index)> providedPoints = new()
     {
-        [BodyPoint.LeftWrist] = (0, 0),
-        [BodyPoint.LeftThumb1] = (0, 1),
-        [BodyPoint.LeftThumb2] = (0, 2),
-        [BodyPoint.LeftThumb3] = (0, 3),
-        [BodyPoint.LeftThumb] = (0, 4),
-        [BodyPoint.LeftIndex1] = (0, 5),
-        [BodyPoint.LeftIndex2] = (0, 6),
-        [BodyPoint.LeftIndex3] = (0, 7),
-        [BodyPoint.LeftIndex] = (0, 8),
-        [BodyPoint.LeftMiddle1] = (0, 9),
-        [BodyPoint.LeftMiddle2] = (0, 10),
-        [BodyPoint.LeftMiddle3] = (0, 11),
-        [BodyPoint.LeftMiddle] = (0, 12),
-        [BodyPoint.LeftRing1] = (0, 13),
-        [BodyPoint.LeftRing2] = (0, 14),
-        [BodyPoint.LeftRing3] = (0, 15),
-        [BodyPoint.LeftRing] = (0, 16),
-        [BodyPoint.LeftPinky1] = (0, 17),
-        [BodyPoint.LeftPinky2] = (0, 18),
-        [BodyPoint.LeftPinky3] = (0, 19),
-        [BodyPoint.LeftPinky] = (0, 20),
+        [BodyPoint.LeftWrist] = (PointOrigin.HandLeft, 0),
+        [BodyPoint.LeftThumb1] = (PointOrigin.HandLeft, 1),
+        [BodyPoint.LeftThumb2] = (PointOrigin.HandLeft, 2),
+        [BodyPoint.LeftThumb3] = (PointOrigin.HandLeft, 3),
+        [BodyPoint.LeftThumb] = (PointOrigin.HandLeft, 4),
+        [BodyPoint.LeftIndex1] = (PointOrigin.HandLeft, 5),
+        [BodyPoint.LeftIndex2] = (PointOrigin.HandLeft, 6),
+        [BodyPoint.LeftIndex3] = (PointOrigin.HandLeft, 7),
+        [BodyPoint.LeftIndex] = (PointOrigin.HandLeft, 8),
+        [BodyPoint.LeftMiddle1] = (PointOrigin.HandLeft, 9),
+        [BodyPoint.LeftMiddle2] = (PointOrigin.HandLeft, 10),
+        [BodyPoint.LeftMiddle3] = (PointOrigin.HandLeft, 11),
+        [BodyPoint.LeftMiddle] = (PointOrigin.HandLeft, 12),
+        [BodyPoint.LeftRing1] = (PointOrigin.HandLeft, 13),
+        [BodyPoint.LeftRing2] = (PointOrigin.HandLeft, 14),
+        [BodyPoint.LeftRing3] = (PointOrigin.HandLeft, 15),
+        [BodyPoint.LeftRing] = (PointOrigin.HandLeft, 16),
+        [BodyPoint.LeftPinky1] = (PointOrigin.HandLeft, 17),
+        [BodyPoint.LeftPinky2] = (PointOrigin.HandLeft, 18),
+        [BodyPoint.LeftPinky3] = (PointOrigin.HandLeft, 19),
+        [BodyPoint.LeftPinky] = (PointOrigin.HandLeft, 20),
 
-        [BodyPoint.RightWrist] = (1, 0),
-        [BodyPoint.RightThumb1] = (1, 1),
-        [BodyPoint.RightThumb2] = (1, 2),
-        [BodyPoint.RightThumb3] = (1, 3),
-        [BodyPoint.RightThumb] = (1, 4),
-        [BodyPoint.RightIndex1] = (1, 5),
-        [BodyPoint.RightIndex2] = (1, 6),
-        [BodyPoint.RightIndex3] = (1, 7),
-        [BodyPoint.RightIndex] = (1, 8),
-        [BodyPoint.RightMiddle1] = (1, 9),
-        [BodyPoint.RightMiddle2] = (1, 10),
-        [BodyPoint.RightMiddle3] = (1, 11),
-        [BodyPoint.RightMiddle] = (1, 12),
-        [BodyPoint.RightRing1] = (1, 13),
-        [BodyPoint.RightRing2] = (1, 14),
-        [BodyPoint.RightRing3] = (1, 15),
-        [BodyPoint.RightRing] = (1, 16),
-        [BodyPoint.RightPinky1] = (1, 17),
-        [BodyPoint.RightPinky2] = (1, 18),
-        [BodyPoint.RightPinky3] = (1, 19),
-        [BodyPoint.RightPinky] = (1, 20),
+        [BodyPoint.RightWrist] = (PointOrigin.HandRight, 0),
+        [BodyPoint.RightThumb1] = (PointOrigin.HandRight, 1),
+        [BodyPoint.RightThumb2] = (PointOrigin.HandRight, 2),
+        [BodyPoint.RightThumb3] = (PointOrigin.HandRight, 3),
+        [BodyPoint.RightThumb] = (PointOrigin.HandRight, 4),
+        [BodyPoint.RightIndex1] = (PointOrigin.HandRight, 5),
+        [BodyPoint.RightIndex2] = (PointOrigin.HandRight, 6),
+        [BodyPoint.RightIndex3] = (PointOrigin.HandRight, 7),
+        [BodyPoint.RightIndex] = (PointOrigin.HandRight, 8),
+        [BodyPoint.RightMiddle1] = (PointOrigin.HandRight, 9),
+        [BodyPoint.RightMiddle2] = (PointOrigin.HandRight, 10),
+        [BodyPoint.RightMiddle3] = (PointOrigin.HandRight, 11),
+        [BodyPoint.RightMiddle] = (PointOrigin.HandRight, 12),
+        [BodyPoint.RightRing1] = (PointOrigin.HandRight, 13),
+        [BodyPoint.RightRing2] = (PointOrigin.HandRight, 14),
+        [BodyPoint.RightRing3] = (PointOrigin.HandRight, 15),
+        [BodyPoint.RightRing] = (PointOrigin.HandRight, 16),
+        [BodyPoint.RightPinky1] = (PointOrigin.HandRight, 17),
+        [BodyPoint.RightPinky2] = (PointOrigin.HandRight, 18),
+        [BodyPoint.RightPinky3] = (PointOrigin.HandRight, 19),
+        [BodyPoint.RightPinky] = (PointOrigin.HandRight, 20),
 
-        [BodyPoint.Head] = (2, 0),
-        [BodyPoint.Neck] = (2, 1),
-        [BodyPoint.SpineShoulder] = (2, 2),
-        [BodyPoint.LeftShoulder] = (2, 3),
-        [BodyPoint.RightShoulder] = (2, 4),
-        [BodyPoint.LeftElbow] = (2, 5),
-        [BodyPoint.RightElbow] = (2, 6),
+        [BodyPoint.Head] = (PointOrigin.Body, 0),
+        [BodyPoint.Neck] = (PointOrigin.Body, 1),
+        [BodyPoint.SpineShoulder] = (PointOrigin.Body, 2),
+        [BodyPoint.LeftShoulder] = (PointOrigin.Body, 3),
+        [BodyPoint.RightShoulder] = (PointOrigin.Body, 4),
+        [BodyPoint.LeftElbow] = (PointOrigin.Body, 5),
+        [BodyPoint.RightElbow] = (PointOrigin.Body, 6),
     };
     private static readonly JointType[] passThrough = new[]{
         JointType.Head,

@@ -17,11 +17,17 @@ public class BodyPointsReplayer : BodyPointsProvider
     float[][] bodyPoints;
     Dictionary<BodyPoint, int> available;
 
-    public override BodyPoint[] AvailablePoints => available.Keys.ToArray();
-    public override Vector4 GetBodyPoint(BodyPoint key)
+    public override BodyPoint[] ProvidedPoints => available.Keys.ToArray();
+    public override (PointState, Vector3) GetBodyPoint(BodyPoint key)
     {
         var point = bodyPoints[available[key]];
-        return new Vector4(point[0], point[1], point[2], point[3]);
+        return (point[3] switch {
+            0f => PointState.NotProvided,
+            1f => PointState.Tracked,
+            2f => PointState.Inferred,
+            3f => PointState.NotTracked,
+            _ => PointState.NotTracked,
+        }, new(point[0], point[1], point[2]));
     }
 
     void Awake()

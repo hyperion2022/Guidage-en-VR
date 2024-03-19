@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -100,7 +101,7 @@ public class BodyPointsVisualizer : MonoBehaviour
         [BodyPoint.LeftPinky3] = 0.03f,
         [BodyPoint.LeftPinky2] = 0.03f,
         [BodyPoint.LeftPinky1] = 0.03f,
-        
+
         [BodyPoint.RightThumb] = 0.03f,
         [BodyPoint.RightThumb3] = 0.03f,
         [BodyPoint.RightThumb2] = 0.03f,
@@ -127,15 +128,15 @@ public class BodyPointsVisualizer : MonoBehaviour
     {
         Assert.IsNotNull(bodyPointsProvider);
         updated = true;
-        spheres = bodyPointsProvider.AvailablePoints.Select(k =>
+        spheres = bodyPointsProvider.ProvidedPoints.Select(k =>
             (k, new Visual.Sphere(transform, nodes.GetValueOrDefault(k, 0.05f), Color.white, k.ToString()))
         ).ToArray();
         var list = new List<(BodyPoint, BodyPoint, Visual.Cylinder)>();
         foreach (var (k, v) in bones)
         {
             if (
-                bodyPointsProvider.AvailablePoints.Contains(k.p1) &&
-                bodyPointsProvider.AvailablePoints.Contains(k.p2)
+                bodyPointsProvider.ProvidedPoints.Contains(k.p1) &&
+                bodyPointsProvider.ProvidedPoints.Contains(k.p2)
             )
             {
                 list.Add((k.p1, k.p2, new(transform, v, Color.white)));
@@ -145,34 +146,35 @@ public class BodyPointsVisualizer : MonoBehaviour
         bodyPointsProvider.BodyPointsChanged += () => updated = true;
     }
 
-    private static Color TrackingStateToColor(float ts)
+    private static Color TrackingStateToColor(BodyPointsProvider.PointState state)
     {
-        return ts switch
+        return state switch
         {
-            1f => Visual.green,
-            0f => Visual.white,
-            3f => Visual.red,
-            _ => Visual.blue,
+            BodyPointsProvider.PointState.Tracked => Visual.green,
+            BodyPointsProvider.PointState.NotProvided => Visual.white,
+            BodyPointsProvider.PointState.NotTracked => Visual.red,
+            BodyPointsProvider.PointState.Inferred => Visual.blue,
+            _ => throw new InvalidOperationException()
         };
     }
 
-    void Update() {
-        if (updated) {
+    void Update()
+    {
+        if (updated)
+        {
             updated = false;
             foreach (var (k, go) in spheres)
             {
-                var v = bodyPointsProvider.GetBodyPoint(k);
-                go.At = v;
-                go.Color = TrackingStateToColor(v.w);
+                var (state, pos) = bodyPointsProvider.GetBodyPoint(k);
+                go.At = pos;
+                go.Color = TrackingStateToColor(state);
             }
             foreach (var (k1, k2, go) in cylinders)
             {
                 var v1 = bodyPointsProvider.GetBodyPoint(k1);
                 var v2 = bodyPointsProvider.GetBodyPoint(k2);
-                if (BodyPointsProvider.IsTracked(v1) && BodyPointsProvider.IsTracked(v2)) {
-                    go.Between = (v1, v2);
-                }
-                go.Color = TrackingStateToColor(v1.w);
+                go.Between = (v1.pos, v2.pos);
+                go.Color = TrackingStateToColor(v1.state);
             }
         }
     }
