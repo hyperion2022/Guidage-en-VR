@@ -1,19 +1,11 @@
 using UnityEngine;
 using UnityEngine.Assertions;
 
-// https://docs.unity3d.com/Manual/CameraRays.html
-// https://docs.unity3d.com/ScriptReference/Debug.DrawLine.html
-public class ObjectSelector : MonoBehaviour
+public class ObjectHighlighter : MonoBehaviour
 {
     [SerializeField] bool hovering = false;
     [SerializeField] float sizeLimit = 10f;
-    [SerializeField] new Camera camera;
-    [SerializeField] BodyPointsProvider bodyPointsProvider = null;
-    [SerializeField] string calibrationFilePath = "calibration.json";
-    [SerializeField] RectTransform topLeft;
-    [SerializeField] RectTransform cursor;
-
-    public class SelectedObject : Outline
+    public class Highlight : Outline
     {
         public bool Selected
         {
@@ -26,61 +18,32 @@ public class ObjectSelector : MonoBehaviour
         }
         private bool selected;
 
-        public SelectedObject()
+        public Highlight()
         {
             OutlineMode = Mode.OutlineAll;
             OutlineWidth = 10f;
             selected = false;
         }
     }
+    private ScreenPointing screenPointing;
 
-    private Calibration calibration = null;
     // when the mouse is hovering an object, we store a reference to it
-    private SelectedObject hovered = null;
-    private bool poiting = false;
-    private Vector2 pointingAt = Vector2.zero;
-
+    private Highlight hovered = null;
     void Start()
     {
-        Assert.IsNotNull(camera);
-        try { calibration = Calibration.LoadFromFile(calibrationFilePath); }
-        catch { }
-        if (bodyPointsProvider != null)
-        {
-            bodyPointsProvider.BodyPointsChanged += OnBodyPointsChange;
-        }
+        screenPointing = GetComponent<ScreenPointing>();
+        Assert.IsNotNull(screenPointing);
     }
-    private void PlaceOnCanvasFromNormalizedPos(RectTransform rectTransform, Vector2 pos)
-    {
-        pos *= 2f;
-        pos -= Vector2.one;
-        pos.Scale(-topLeft.localPosition);
-        rectTransform.localPosition = new(pos.x, pos.y, rectTransform.localPosition.z);
-    }
-
-    void OnBodyPointsChange()
-    {
-        var (valid, pos) = calibration.PointingAt(bodyPointsProvider);
-        if (valid != poiting) cursor.gameObject.SetActive(valid);
-        poiting = valid;
-        if (valid)
-        {
-            PlaceOnCanvasFromNormalizedPos(cursor, pos);
-            pointingAt = new(pos.x * camera.pixelWidth, (1f - pos.y) * camera.pixelHeight);
-        }
-    }
-
     void Update()
     {
         bool interact = Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Mouse0);
-        if (!poiting) pointingAt = (Vector2)Input.mousePosition;
-        if (hovering) UpdatePointedObject(pointingAt, interact);
-        else if (interact) UpdatePointedObject(pointingAt);
+        if (screenPointing.pointing.mode == ScreenPointing.PointingMode.None) return;
+        if (hovering) UpdatePointedObject(screenPointing.pointing.atPixel, interact);
+        else if (interact) UpdatePointedObject(screenPointing.pointing.atPixel);
     }
-
     void UpdatePointedObject(Vector2 screenPos, bool interact)
     {
-        if (Physics.Raycast(camera.ScreenPointToRay(screenPos), out var hit) && SizeIsInferiorToLimit(hit.transform, sizeLimit))
+        if (Physics.Raycast(screenPointing.pointingCamera.ScreenPointToRay(screenPos), out var hit) && SizeIsInferiorToLimit(hit.transform, sizeLimit))
         {
             // if the hovered object is no longer being pointed at, then remove outline if not selected
             if (
@@ -93,7 +56,7 @@ public class ObjectSelector : MonoBehaviour
             // if the component is not present, then add it (by default is not selected)
             if (!hit.transform.TryGetComponent(out hovered))
             {
-                hovered = hit.transform.gameObject.AddComponent<SelectedObject>();
+                hovered = hit.transform.gameObject.AddComponent<Highlight>();
             }
 
             // if we are clicking, toogle selection on hovered object
@@ -109,19 +72,18 @@ public class ObjectSelector : MonoBehaviour
 
     void UpdatePointedObject(Vector2 screenPos)
     {
-        if (Physics.Raycast(camera.ScreenPointToRay(screenPos), out var hit) && SizeIsInferiorToLimit(hit.transform, sizeLimit))
+        if (Physics.Raycast(screenPointing.pointingCamera.ScreenPointToRay(screenPos), out var hit) && SizeIsInferiorToLimit(hit.transform, sizeLimit))
         {
-            if (hit.transform.TryGetComponent(out SelectedObject outline))
+            if (hit.transform.TryGetComponent(out Highlight outline))
             {
                 Destroy(outline);
             }
             else
             {
-                hit.transform.gameObject.AddComponent<SelectedObject>().Selected = true;
+                hit.transform.gameObject.AddComponent<Highlight>().Selected = true;
             }
         }
     }
-
     static bool SizeIsInferiorToLimit(Transform go, float limit)
     {
         var bounds = new Bounds(go.position, Vector3.zero);

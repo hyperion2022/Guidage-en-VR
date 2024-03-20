@@ -22,7 +22,7 @@ public class CalibrationManager : MonoBehaviour
     [SerializeField] UnityEngine.UI.Image targetFg;
     [SerializeField] UnityEngine.UI.Image targetBg;
     [SerializeField] RectTransform topLeft;
-    private static readonly string pointingMessage = "Point with your index toward the center of the blue target\nValidate (press space) and stay still until the target disapear";
+    private static readonly string pointingMessage = "Point with your index towards the center of the blue target\nValidate (press space) and stay still until the target disapears";
     // there are 4 corners on the screen
     private enum Point { TopLeft = 0, TopRight = 1, BottomLeft = 2, BottomRight = 3, }
     // the user may positionate itself in 3 posture, straight, leaning left, leaning right

@@ -59,13 +59,21 @@ public class Calibration
 
     public (bool valid, Vector2 pos) PointingAt(BodyPointsProvider bodyPointsProvider)
     {
+        var right = PointingAt(bodyPointsProvider, BodyPoint.Head, BodyPoint.RightIndex);
+        if (right.valid) return right;
+        return PointingAt(bodyPointsProvider, BodyPoint.Head, BodyPoint.LeftIndex);
+    }
+    public (bool valid, Vector2 pos) PointingAt(BodyPointsProvider bodyPointsProvider, BodyPoint a, BodyPoint b)
+    {
+        // if calibration not initialized, silently fail
         if (x == Vector3.zero) return (false, Vector2.zero);
-        var head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
-        var index = bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
-        if (head.state != PointState.Tracked) return (false, Vector2.zero);
-        if (index.state != PointState.Tracked) return (false, Vector2.zero);
+
+        var pointA = bodyPointsProvider.GetBodyPoint(a);
+        var pointB = bodyPointsProvider.GetBodyPoint(b);
+        if (pointA.state != PointState.Tracked) return (false, Vector2.zero);
+        if (pointB.state != PointState.Tracked) return (false, Vector2.zero);
         var (found, point) = LineOnPlaneIntersection(
-            line: (head.pos, (index.pos - head.pos).normalized),
+            line: (pointA.pos, (pointB.pos - pointA.pos).normalized),
             plane: (tl, Vector3.Cross(x, y).normalized)
         );
         if (!found) return (false, Vector2.zero);
