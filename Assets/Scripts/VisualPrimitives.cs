@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class Visual
+public static class VisualPrimitives
 {
     public static Color yellow = Color.Lerp(Color.yellow, Color.white, 0.5f);
     public static Color green = Color.Lerp(Color.green, Color.white, 0.5f);
@@ -41,13 +41,14 @@ public class Visual
     public class Cylinder
     {
         private readonly GameObject go;
+        private float radius;
 
         public Cylinder(Transform parent, float radius, Color color, string name = "Cylinder")
         {
+            this.radius = radius;
             go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             go.transform.SetParent(parent);
             go.name = name;
-            go.transform.localScale = Vector3.one * radius;
             var m = go.GetComponent<MeshRenderer>().material;
             m.SetFloat("_Glossiness", 0f);
             m.color = color;
@@ -58,12 +59,16 @@ public class Visual
             set
             {
                 var (pos1, pos2) = value;
+                var distanceAbs = Vector3.Distance(
+                    go.transform.parent.TransformPoint(pos1),
+                    go.transform.parent.TransformPoint(pos2)
+                );
                 var distance = Vector3.Distance(pos1, pos2);
                 go.transform.localPosition = pos1;
                 go.transform.LookAt(go.transform.parent.TransformPoint(pos2));
                 go.transform.Rotate(new(90f, 0f, 0f));
-                go.transform.Translate(new(0f, distance / 2f, 0f));
-                go.transform.localScale = new(go.transform.localScale.x, distance / 2f, go.transform.localScale.z);
+                go.transform.Translate(new Vector3(0f, distanceAbs / 2f, 0f));
+                go.transform.localScale = new(radius, distance / 2f, radius);
             }
         }
 

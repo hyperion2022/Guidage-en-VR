@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.Assertions;
-using Calibration = CalibrationManager.Calibration;
 
 // https://docs.unity3d.com/Manual/CameraRays.html
 // https://docs.unity3d.com/ScriptReference/Debug.DrawLine.html

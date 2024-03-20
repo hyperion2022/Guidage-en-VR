@@ -11,8 +11,8 @@ public class BodyPointsVisualizer : MonoBehaviour
     BodyPointsProvider bodyPointsProvider;
 
     private bool updated;
-    (BodyPoint, Visual.Sphere)[] spheres;
-    (BodyPoint, BodyPoint, Visual.Cylinder)[] cylinders;
+    (BodyPoint, VisualPrimitives.Sphere)[] spheres;
+    (BodyPoint, BodyPoint, VisualPrimitives.Cylinder)[] cylinders;
 
     static readonly Dictionary<(BodyPoint p1, BodyPoint p2), float> bones = new()
     {
@@ -129,9 +129,9 @@ public class BodyPointsVisualizer : MonoBehaviour
         Assert.IsNotNull(bodyPointsProvider);
         updated = true;
         spheres = bodyPointsProvider.ProvidedPoints.Select(k =>
-            (k, new Visual.Sphere(transform, nodes.GetValueOrDefault(k, 0.05f), Color.white, k.ToString()))
+            (k, new VisualPrimitives.Sphere(transform, nodes.GetValueOrDefault(k, 0.05f), Color.white, k.ToString()))
         ).ToArray();
-        var list = new List<(BodyPoint, BodyPoint, Visual.Cylinder)>();
+        var list = new List<(BodyPoint, BodyPoint, VisualPrimitives.Cylinder)>();
         foreach (var (k, v) in bones)
         {
             if (
@@ -150,10 +150,10 @@ public class BodyPointsVisualizer : MonoBehaviour
     {
         return state switch
         {
-            BodyPointsProvider.PointState.Tracked => Visual.green,
-            BodyPointsProvider.PointState.NotProvided => Visual.white,
-            BodyPointsProvider.PointState.NotTracked => Visual.red,
-            BodyPointsProvider.PointState.Inferred => Visual.blue,
+            BodyPointsProvider.PointState.Tracked => VisualPrimitives.green,
+            BodyPointsProvider.PointState.NotProvided => VisualPrimitives.white,
+            BodyPointsProvider.PointState.NotTracked => VisualPrimitives.red,
+            BodyPointsProvider.PointState.Inferred => VisualPrimitives.blue,
             _ => throw new InvalidOperationException()
         };
     }
