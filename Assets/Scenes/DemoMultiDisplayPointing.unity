@@ -520,17 +520,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 138152456}
   m_CullTransparentMesh: 1
---- !u!114 &147927846 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 9004181192583223378, guid: a1aeb26cae553ac44a6f1165492f2814, type: 3}
-  m_PrefabInstance: {fileID: 357064536}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5c29e9c13d7c14f4a9e05c17de9f1485, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &158009432
 GameObject:
   m_ObjectHideFlags: 0
@@ -799,67 +788,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 205296968}
   m_CullTransparentMesh: 1
---- !u!1001 &357064536
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 1291602666385105795, guid: a1aeb26cae553ac44a6f1165492f2814, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1291602666385105795, guid: a1aeb26cae553ac44a6f1165492f2814, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1291602666385105795, guid: a1aeb26cae553ac44a6f1165492f2814, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1291602666385105795, guid: a1aeb26cae553ac44a6f1165492f2814, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1291602666385105795, guid: a1aeb26cae553ac44a6f1165492f2814, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1291602666385105795, guid: a1aeb26cae553ac44a6f1165492f2814, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1291602666385105795, guid: a1aeb26cae553ac44a6f1165492f2814, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1291602666385105795, guid: a1aeb26cae553ac44a6f1165492f2814, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1291602666385105795, guid: a1aeb26cae553ac44a6f1165492f2814, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1291602666385105795, guid: a1aeb26cae553ac44a6f1165492f2814, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4207322007054021764, guid: a1aeb26cae553ac44a6f1165492f2814, type: 3}
-      propertyPath: m_Name
-      value: BodyPointsFromKinectAugmented
-      objectReference: {fileID: 0}
-    - target: {fileID: 9004181192583223378, guid: a1aeb26cae553ac44a6f1165492f2814, type: 3}
-      propertyPath: kinectHandle
-      value: 
-      objectReference: {fileID: 62801099}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: a1aeb26cae553ac44a6f1165492f2814, type: 3}
 --- !u!1 &381724970
 GameObject:
   m_ObjectHideFlags: 0
@@ -1998,7 +1926,7 @@ PrefabInstance:
     - target: {fileID: 406708984959997388, guid: bdeeeecac281e1c4a85c754aa2437866, type: 3}
       propertyPath: bodyPointsProvider
       value: 
-      objectReference: {fileID: 147927846}
+      objectReference: {fileID: 62801099}
     - target: {fileID: 1849232429259153442, guid: bdeeeecac281e1c4a85c754aa2437866, type: 3}
       propertyPath: m_Name
       value: ScreenPointing
@@ -3625,7 +3553,7 @@ PrefabInstance:
     - target: {fileID: 1959604771655492846, guid: 1fb9d5aa6cc43e3489fa922c180518a9, type: 3}
       propertyPath: bodyPointsProvider
       value: 
-      objectReference: {fileID: 147927846}
+      objectReference: {fileID: 62801099}
     - target: {fileID: 1981102805348971010, guid: 1fb9d5aa6cc43e3489fa922c180518a9, type: 3}
       propertyPath: m_Name
       value: BodyPointsVisualizer
@@ -4415,7 +4343,6 @@ SceneRoots:
   m_Roots:
   - {fileID: 892003284}
   - {fileID: 1157569300}
-  - {fileID: 357064536}
   - {fileID: 1512650961}
   - {fileID: 844594462}
   - {fileID: 769018959}

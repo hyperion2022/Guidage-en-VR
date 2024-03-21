@@ -115,8 +115,8 @@ public class CalibrationManager : MonoBehaviour
             var head = bodyPointsProvider.GetBodyPoint(BodyPoint.Head);
             var index = bodyPointsProvider.GetBodyPoint(BodyPoint.RightIndex);
             // ignore if not properly tracked
-            if (head.state != PointState.Tracked) return;
-            if (index.state != PointState.Tracked) return;
+            if (head.state != PointState.Tracked && head.state != PointState.Inferred) return;
+            if (index.state != PointState.Tracked && index.state != PointState.Inferred) return;
             // cumulate it
             cumulated.Add((head.pos, index.pos));
 
