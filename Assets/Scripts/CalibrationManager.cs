@@ -229,7 +229,7 @@ public class CalibrationManager : MonoBehaviour
             // animate the blue target by making its scale slightly oscilating with time
             targetBg.transform.localScale = (TargetScale() + 0.2f * Mathf.Sin(Time.timeSinceLevelLoad * 4f)) * Vector3.one;
         }
-        if (validationButton.interactable && Input.GetKeyDown(KeyCode.Space))
+        if (validationButton.interactable && (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Mouse1)))
         {
             // pressing space does the same thing as clicking the button
             OnValidation();
