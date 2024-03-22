@@ -7,20 +7,22 @@ public class PingLayer : MonoBehaviour
 {
     [SerializeField] PingManager pingManager;
     [SerializeField] Camera targetCamera;
-    [SerializeField] Canvas canvas;
     [SerializeField] GameObject pingPrefab;
     [SerializeField] RectTransform bottomLeft;
 
+    private Canvas canvas;
     private List<RectTransform> pings;
 
     void Start()
     {
+        canvas = GetComponent<Canvas>();
         Assert.IsNotNull(pingPrefab);
         Assert.IsNotNull(bottomLeft);
         Assert.IsNotNull(targetCamera);
         Assert.IsNotNull(canvas);
         Assert.IsNotNull(pingManager);
         pings = new();
+        canvas.targetDisplay = targetCamera.targetDisplay;
     }
 
     private void PlaceOnCanvasFromNormalizedPos(RectTransform rectTransform, Vector2 pos)

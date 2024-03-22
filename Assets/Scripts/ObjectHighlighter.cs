@@ -43,7 +43,7 @@ public class ObjectHighlighter : MonoBehaviour
     }
     void UpdatePointedObject(Vector2 screenPos, bool interact)
     {
-        if (Physics.Raycast(screenPointing.pointingCamera.ScreenPointToRay(screenPos), out var hit) && SizeIsInferiorToLimit(hit.transform, sizeLimit))
+        if (Physics.Raycast(screenPointing.targetCamera.ScreenPointToRay(screenPos), out var hit) && SizeIsInferiorToLimit(hit.transform, sizeLimit))
         {
             // if the hovered object is no longer being pointed at, then remove outline if not selected
             if (
@@ -72,7 +72,7 @@ public class ObjectHighlighter : MonoBehaviour
 
     void UpdatePointedObject(Vector2 screenPos)
     {
-        if (Physics.Raycast(screenPointing.pointingCamera.ScreenPointToRay(screenPos), out var hit) && SizeIsInferiorToLimit(hit.transform, sizeLimit))
+        if (Physics.Raycast(screenPointing.targetCamera.ScreenPointToRay(screenPos), out var hit) && SizeIsInferiorToLimit(hit.transform, sizeLimit))
         {
             if (hit.transform.TryGetComponent(out Highlight outline))
             {

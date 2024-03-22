@@ -5,7 +5,7 @@ using UnityEngine.Assertions;
 // https://docs.unity3d.com/ScriptReference/Debug.DrawLine.html
 public class ScreenPointing : MonoBehaviour
 {
-    [SerializeField] public Camera pointingCamera;
+    [SerializeField] public Camera targetCamera;
     [SerializeField] BodyPointsProvider bodyPointsProvider = null;
     [SerializeField] string calibrationFilePath = "calibration.json";
 
@@ -18,7 +18,10 @@ public class ScreenPointing : MonoBehaviour
 
     void Start()
     {
-        Assert.IsNotNull(pointingCamera);
+        var canvas = GetComponent<Canvas>();
+        Assert.IsNotNull(canvas);
+        canvas.targetDisplay = targetCamera.targetDisplay;
+        Assert.IsNotNull(targetCamera);
         try { calibration = Calibration.LoadFromFile(calibrationFilePath); }
         catch { }
         if (bodyPointsProvider != null)
@@ -35,7 +38,7 @@ public class ScreenPointing : MonoBehaviour
         {
             lastBodyPointing = Time.timeSinceLevelLoad;
             pointing.atNorm = new(pos.x, 1f - pos.y);
-            pointing.atPixel = Vector2.Scale(pointing.atNorm, pointingCamera.pixelRect.size);
+            pointing.atPixel = Vector2.Scale(pointing.atNorm, targetCamera.pixelRect.size);
             pointing.mode = PointingMode.Body;
         }
     }
@@ -47,8 +50,8 @@ public class ScreenPointing : MonoBehaviour
         {
             pointing.atPixel = (Vector2)Input.mousePosition;
             pointing.atNorm = new(
-                pointing.atPixel.x / pointingCamera.pixelWidth,
-                pointing.atPixel.y / pointingCamera.pixelHeight
+                pointing.atPixel.x / targetCamera.pixelWidth,
+                pointing.atPixel.y / targetCamera.pixelHeight
             );
             // if the mouse is not inside the display rect, then ignore it
             pointing.mode = (
