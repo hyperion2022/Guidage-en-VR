@@ -5,6 +5,7 @@ using UnityEngine.Assertions;
 // https://docs.unity3d.com/ScriptReference/Debug.DrawLine.html
 public class ScreenPointing : MonoBehaviour
 {
+    [SerializeField] float smoothFactor = 0.5f;
     [SerializeField] public Camera targetCamera;
     [SerializeField] BodyPointsProvider bodyPointsProvider = null;
     [SerializeField] string calibrationFilePath = "calibration.json";
@@ -15,9 +16,12 @@ public class ScreenPointing : MonoBehaviour
 
     private Calibration calibration = null;
     private float lastBodyPointing = -100f;
+    private Vector2 bodySmooth;
 
     void Start()
     {
+        Assert.IsTrue(smoothFactor >= 0f && smoothFactor <= 0.9f);
+        bodySmooth = Vector2.zero;
         var canvas = GetComponent<Canvas>();
         Assert.IsNotNull(canvas);
         canvas.targetDisplay = targetCamera.targetDisplay;
@@ -31,13 +35,21 @@ public class ScreenPointing : MonoBehaviour
         }
     }
 
+    private Vector2 BodySmooth(Vector2 pos)
+    {
+        if (pointing.mode != PointingMode.Body) bodySmooth = pos;
+        bodySmooth = smoothFactor * bodySmooth + (1f - smoothFactor) * pos;
+        return bodySmooth;
+    }
+
     void OnBodyPointsChange()
     {
         var (valid, pos) = calibration.PointingAt(bodyPointsProvider);
         if (valid)
         {
             lastBodyPointing = Time.timeSinceLevelLoad;
-            pointing.atNorm = new(pos.x, 1f - pos.y);
+            pointing.atNorm = BodySmooth(new(pos.x, 1f - pos.y));
+            // pointing.atNorm = new(pos.x, 1f - pos.y);
             pointing.atPixel = Vector2.Scale(pointing.atNorm, targetCamera.pixelRect.size);
             pointing.mode = PointingMode.Body;
         }
