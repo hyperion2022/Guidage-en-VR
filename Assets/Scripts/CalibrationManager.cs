@@ -22,7 +22,7 @@ public class CalibrationManager : MonoBehaviour
     [SerializeField] UnityEngine.UI.Image targetFg;
     [SerializeField] UnityEngine.UI.Image targetBg;
     [SerializeField] RectTransform topLeft;
-    private static readonly string pointingMessage = "Point with your index towards the center of the blue target\nValidate (press space) and stay still until the target disapears";
+    private static readonly string pointingMessage = "Point your index towards the center of the blue target.\nValidate (press the space bar) and stay still until the target disapears.";
     // there are 4 corners on the screen
     private enum Point { TopLeft = 0, TopRight = 1, BottomLeft = 2, BottomRight = 3, }
     // the user may positionate itself in 3 posture, straight, leaning left, leaning right
@@ -167,8 +167,8 @@ public class CalibrationManager : MonoBehaviour
                         validationButton.interactable = true;
                         instructions.text = state.lean switch
                         {
-                            Lean.Left => "Lean on your left",
-                            Lean.Right => "Lean on your right",
+                            Lean.Left => "Lean to your left.",
+                            Lean.Right => "Lean to your right.",
                             _ => throw new InvalidOperationException(),
                         };
                         break;
@@ -241,7 +241,7 @@ public class CalibrationManager : MonoBehaviour
     {
         Assert.IsTrue(calibration.x != Vector3.zero);
         calibration.SaveToFile(filePath);
-        instructions.text = "Calibration saved";
+        instructions.text = "Calibration saved.";
         saveButton.interactable = false;
     }
 
@@ -257,8 +257,8 @@ public class CalibrationManager : MonoBehaviour
                 state.state = State.Wait;
                 instructions.text = state.lean switch
                 {
-                    Lean.Left => "Stay on the left while aiming the targets",
-                    Lean.Right => "Stay on the right while aiming the targets",
+                    Lean.Left => "Stay on the left while aiming at the targets.",
+                    Lean.Right => "Stay on the right while aiming at the targets.",
                     _ => throw new InvalidOperationException(),
                 };
                 SetVisualTarget();
