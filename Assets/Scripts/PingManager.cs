@@ -5,6 +5,7 @@ using UnityEngine.EventSystems;
 
 public class PingManager : MonoBehaviour
 {
+    [SerializeField] List<KeyCode> keyCodes;
     [SerializeField] GameObject pingPrefab;
     [SerializeField] RectTransform bottomLeft;
     public Dictionary<RectTransform, Vector3> Pings => pings;
@@ -13,6 +14,7 @@ public class PingManager : MonoBehaviour
     private Dictionary<RectTransform, Vector3> pings;
     void Start()
     {
+        Assert.IsNotNull(keyCodes);
         Assert.IsNotNull(pingPrefab);
         Assert.IsNotNull(bottomLeft);
         screenPointing = GetComponent<ScreenPointing>();
@@ -31,10 +33,19 @@ public class PingManager : MonoBehaviour
         var pos = (Vector2)screenPointing.targetCamera.WorldToScreenPoint(worldPos);
         return new(pos.x / screenPointing.targetCamera.pixelWidth, pos.y / screenPointing.targetCamera.pixelHeight);
     }
+
+    private bool GetTrigger()
+    {
+        foreach (var keyCode in keyCodes)
+        {
+            if (Input.GetKeyDown(keyCode)) return true;
+        }
+        return false;
+    }
     void Update()
     {
         // if place/remove triggered (mouse middle click, or keyboard P)
-        if (Input.GetKeyDown(KeyCode.Mouse2) || Input.GetKeyDown(KeyCode.P))
+        if (GetTrigger())
         {
             if (screenPointing.pointing.mode != ScreenPointing.PointingMode.None)
             {

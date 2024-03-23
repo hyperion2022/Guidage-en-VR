@@ -57,7 +57,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 440cb5d13ef9dae4b878c85d9d8b4882, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  pointingCamera: {fileID: 0}
+  smoothFactor: 0.5
+  targetCamera: {fileID: 0}
   bodyPointsProvider: {fileID: 0}
   calibrationFilePath: calibration.json
 --- !u!114 &5483171361919677590
@@ -72,6 +73,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 73ad4477f378d294db727b9ebdcfd38a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  keyCodes: 430100006f000000
   hovering: 1
   sizeLimit: 10
 --- !u!223 &2857836796966242723
@@ -132,6 +134,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cf54b6757698b7e4dac44a67728b1ebe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  keyCodes: 4401000070000000
   pingPrefab: {fileID: 2350269127959651571}
   bottomLeft: {fileID: 7664960483515951149}
 --- !u!114 &1702882105866527366

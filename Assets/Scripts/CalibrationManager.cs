@@ -22,7 +22,18 @@ public class CalibrationManager : MonoBehaviour
     [SerializeField] UnityEngine.UI.Image targetFg;
     [SerializeField] UnityEngine.UI.Image targetBg;
     [SerializeField] RectTransform topLeft;
-    private static readonly string pointingMessage = "Point your index towards the center of the blue target.\nValidate (press the space bar) and stay still until the target disapears.";
+
+    private static class Message {
+        public const string waintingKinect = "Waiting for body detection from the Kinect...\nMake sure it is properly oriented and try to move your arms.";
+        public const string instruction = "Point your index towards the center of the blue target.\nValidate (press the space bar) and stay still until the target disapears.";
+        public const string stayLeft = "Stay on the left while aiming at the targets.";
+        public const string stayRight = "Stay on the right while aiming at the targets.";
+        public const string leanLeft = "Lean to your left.";
+        public const string leanRight = "Lean to your right.";
+        public const string done = "Done";
+        public const string saved = "Calibration saved";
+    }
+    // private static readonly string pointingMessage = "Point your index towards the center of the blue target.\nValidate (press the space bar) and stay still until the target disapears.";
     // there are 4 corners on the screen
     private enum Point { TopLeft = 0, TopRight = 1, BottomLeft = 2, BottomRight = 3, }
     // the user may positionate itself in 3 posture, straight, leaning left, leaning right
@@ -85,6 +96,7 @@ public class CalibrationManager : MonoBehaviour
         }
         catch { }
 
+        instructions.text = Message.waintingKinect;
         state = (State.Init, Lean.Center, Point.TopLeft);
         bodyPointsProvider.BodyPointsChanged += OnBodyPointsChange;
     }
@@ -108,7 +120,7 @@ public class CalibrationManager : MonoBehaviour
             state = (State.Wait, Lean.Center, Point.TopLeft);
             validationButton.interactable = true;
             SetVisualTarget();
-            instructions.text = pointingMessage;
+            instructions.text = Message.instruction;
         }
         else if (state.state == State.Accu)
         {
@@ -167,8 +179,8 @@ public class CalibrationManager : MonoBehaviour
                         validationButton.interactable = true;
                         instructions.text = state.lean switch
                         {
-                            Lean.Left => "Lean to your left.",
-                            Lean.Right => "Lean to your right.",
+                            Lean.Left => Message.leanLeft,
+                            Lean.Right => Message.leanRight,
                             _ => throw new InvalidOperationException(),
                         };
                         break;
@@ -181,7 +193,7 @@ public class CalibrationManager : MonoBehaviour
                         restartButton.gameObject.SetActive(true);
                         saveButton.gameObject.SetActive(true);
                         saveButton.interactable = true;
-                        instructions.text = "Done";
+                        instructions.text = Message.done;
                         cursor.gameObject.SetActive(true);
                         if (calibration != null) calibration.VisualizeRemove();
                         calibration = CalibrationFromBodyPoints();
@@ -241,7 +253,7 @@ public class CalibrationManager : MonoBehaviour
     {
         Assert.IsTrue(calibration.x != Vector3.zero);
         calibration.SaveToFile(filePath);
-        instructions.text = "Calibration saved.";
+        instructions.text = Message.saved;
         saveButton.interactable = false;
     }
 
@@ -257,8 +269,8 @@ public class CalibrationManager : MonoBehaviour
                 state.state = State.Wait;
                 instructions.text = state.lean switch
                 {
-                    Lean.Left => "Stay on the left while aiming at the targets.",
-                    Lean.Right => "Stay on the right while aiming at the targets.",
+                    Lean.Left => Message.stayLeft,
+                    Lean.Right => Message.stayRight,
                     _ => throw new InvalidOperationException(),
                 };
                 SetVisualTarget();
@@ -273,7 +285,7 @@ public class CalibrationManager : MonoBehaviour
                 validationButton.gameObject.SetActive(true);
                 validationButton.interactable = true;
                 SetVisualTarget();
-                instructions.text = pointingMessage;
+                instructions.text = Message.instruction;
                 break;
             default: break;
         }

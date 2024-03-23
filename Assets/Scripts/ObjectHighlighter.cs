@@ -1,8 +1,10 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Assertions;
 
 public class ObjectHighlighter : MonoBehaviour
 {
+    [SerializeField] List<KeyCode> keyCodes;
     [SerializeField] bool hovering = false;
     [SerializeField] float sizeLimit = 10f;
     public class Highlight : Outline
@@ -34,9 +36,17 @@ public class ObjectHighlighter : MonoBehaviour
         screenPointing = GetComponent<ScreenPointing>();
         Assert.IsNotNull(screenPointing);
     }
+    private bool GetTrigger()
+    {
+        foreach (var keyCode in keyCodes)
+        {
+            if (Input.GetKeyDown(keyCode)) return true;
+        }
+        return false;
+    }
     void Update()
     {
-        bool interact = Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Mouse0);
+        bool interact = GetTrigger();
         if (screenPointing.pointing.mode == ScreenPointing.PointingMode.None) return;
         if (hovering) UpdatePointedObject(screenPointing.pointing.atPixel, interact);
         else if (interact) UpdatePointedObject(screenPointing.pointing.atPixel);
