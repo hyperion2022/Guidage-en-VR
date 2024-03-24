@@ -2,113 +2,117 @@ using System;
 using System.IO;
 using Newtonsoft.Json;
 using UnityEngine;
-using static BodyPointsProvider;
 using static Geometry;
-public class Calibration
+
+namespace UserOnboarding
 {
-    // position of the top left corner
-    public Vector3 tl;
-    // horizontal vector, with its magnitude beeing the screen's width
-    public Vector3 x;
-    // vertical vector, with its magnitude beeing the screen's height
-    public Vector3 y;
+    using static BodyPointsProvider;
+    public class Calibration
+    {
+        // position of the top left corner
+        public Vector3 tl;
+        // horizontal vector, with its magnitude beeing the screen's width
+        public Vector3 x;
+        // vertical vector, with its magnitude beeing the screen's height
+        public Vector3 y;
 
-    public void SaveToFile(string filePath)
-    {
-        File.WriteAllText(filePath, JsonConvert.SerializeObject(new Json
+        public void SaveToFile(string filePath)
         {
-            tl = new[] { tl.x, tl.y, tl.z },
-            x = new[] { x.x, x.y, x.z },
-            y = new[] { y.x, y.y, y.z },
-        }));
-    }
-    public static Calibration LoadFromFile(string filePath)
-    {
-        var v = JsonConvert.DeserializeObject<Json>(File.ReadAllText(filePath));
-        if (v.tl != null && v.x != null && v.y != null && v.tl.Length == 3 && v.x.Length == 3 && v.y.Length == 3)
-        {
-            return new()
+            File.WriteAllText(filePath, JsonConvert.SerializeObject(new Json
             {
-                tl = new(v.tl[0], v.tl[1], v.tl[2]),
-                x = new(v.x[0], v.x[1], v.x[2]),
-                y = new(v.y[0], v.y[1], v.y[2])
-            };
+                tl = new[] { tl.x, tl.y, tl.z },
+                x = new[] { x.x, x.y, x.z },
+                y = new[] { y.x, y.y, y.z },
+            }));
         }
-        else
+        public static Calibration LoadFromFile(string filePath)
         {
-            return new()
+            var v = JsonConvert.DeserializeObject<Json>(File.ReadAllText(filePath));
+            if (v.tl != null && v.x != null && v.y != null && v.tl.Length == 3 && v.x.Length == 3 && v.y.Length == 3)
             {
-                tl = Vector3.zero,
-                x = Vector3.zero,
-                y = Vector3.zero
-            };
+                return new()
+                {
+                    tl = new(v.tl[0], v.tl[1], v.tl[2]),
+                    x = new(v.x[0], v.x[1], v.x[2]),
+                    y = new(v.y[0], v.y[1], v.y[2])
+                };
+            }
+            else
+            {
+                return new()
+                {
+                    tl = Vector3.zero,
+                    x = Vector3.zero,
+                    y = Vector3.zero
+                };
+            }
         }
-    }
-    // just the equivalent of Calibration, but serializable to json
-    [Serializable]
-    private struct Json { public float[] tl; public float[] x; public float[] y; }
+        // just the equivalent of Calibration, but serializable to json
+        [Serializable]
+        private struct Json { public float[] tl; public float[] x; public float[] y; }
 
-    private (
-        VisualPrimitives.Sphere p,
-        VisualPrimitives.Cylinder l,
-        VisualPrimitives.Cylinder r,
-        VisualPrimitives.Cylinder t,
-        VisualPrimitives.Cylinder b
-    ) visualize;
+        private (
+            VisualPrimitives.Sphere p,
+            VisualPrimitives.Cylinder l,
+            VisualPrimitives.Cylinder r,
+            VisualPrimitives.Cylinder t,
+            VisualPrimitives.Cylinder b
+        ) visualize;
 
 
-    public (bool valid, Vector2 pos) PointingAt(BodyPointsProvider bodyPointsProvider)
-    {
-        var right = PointingAt(bodyPointsProvider, BodyPoint.Head, BodyPoint.RightIndex);
-        if (right.valid) return right;
-        return PointingAt(bodyPointsProvider, BodyPoint.Head, BodyPoint.LeftIndex);
-    }
-    public (bool valid, Vector2 pos) PointingAt(BodyPointsProvider bodyPointsProvider, BodyPoint a, BodyPoint b)
-    {
-        // if calibration not initialized, silently fail
-        if (x == Vector3.zero) return (false, Vector2.zero);
-
-        var pointA = bodyPointsProvider.GetBodyPoint(a);
-        var pointB = bodyPointsProvider.GetBodyPoint(b);
-        if (pointA.state != PointState.Tracked) return (false, Vector2.zero);
-        if (pointB.state != PointState.Tracked) return (false, Vector2.zero);
-        var (found, point) = LineOnPlaneIntersection(
-            line: (pointA.pos, (pointB.pos - pointA.pos).normalized),
-            plane: (tl, Vector3.Cross(x, y).normalized)
-        );
-        if (!found) return (false, Vector2.zero);
-        if (visualize.p != null) visualize.p.At = point;
-        Vector2 pos = new(
-            Vector3.Dot(x, point - tl) / x.sqrMagnitude,
-            Vector3.Dot(y, point - tl) / y.sqrMagnitude
-        );
-        return (pos.x >= 0.0f && pos.x <= 1.0f && pos.y >= 0.0f && pos.y <= 1.0f, pos);
-    }
-
-    public void Visualize(Transform parent)
-    {
-        visualize = (
-            p: new(parent, 0.03f, VisualPrimitives.blue, "Pointing At") { At = tl },
-            l: new VisualPrimitives.Cylinder(parent, 0.02f, VisualPrimitives.blue, "Screen Left Side") { Between = (tl, tl + y) },
-            r: new VisualPrimitives.Cylinder(parent, 0.02f, VisualPrimitives.blue, "Screen Right Side") { Between = (tl + x, tl + y + x) },
-            t: new VisualPrimitives.Cylinder(parent, 0.02f, VisualPrimitives.blue, "Screen Top Side") { Between = (tl, tl + x) },
-            b: new VisualPrimitives.Cylinder(parent, 0.02f, VisualPrimitives.blue, "Screen Bottom Side") { Between = (tl + y, tl + x + y) }
-        );
-    }
-    public void VisualizeRemove()
-    {
-        if (visualize.p != null)
+        public (bool valid, Vector2 pos) PointingAt(BodyPointsProvider bodyPointsProvider)
         {
-            visualize.p.Remove();
-            visualize.p = null;
-            visualize.l.Remove();
-            visualize.l = null;
-            visualize.r.Remove();
-            visualize.r = null;
-            visualize.t.Remove();
-            visualize.t = null;
-            visualize.b.Remove();
-            visualize.b = null;
+            var right = PointingAt(bodyPointsProvider, BodyPoint.Head, BodyPoint.RightIndex);
+            if (right.valid) return right;
+            return PointingAt(bodyPointsProvider, BodyPoint.Head, BodyPoint.LeftIndex);
+        }
+        public (bool valid, Vector2 pos) PointingAt(BodyPointsProvider bodyPointsProvider, BodyPoint a, BodyPoint b)
+        {
+            // if calibration not initialized, silently fail
+            if (x == Vector3.zero) return (false, Vector2.zero);
+
+            var pointA = bodyPointsProvider.GetBodyPoint(a);
+            var pointB = bodyPointsProvider.GetBodyPoint(b);
+            if (pointA.state != PointState.Tracked) return (false, Vector2.zero);
+            if (pointB.state != PointState.Tracked) return (false, Vector2.zero);
+            var (found, point) = LineOnPlaneIntersection(
+                line: (pointA.pos, (pointB.pos - pointA.pos).normalized),
+                plane: (tl, Vector3.Cross(x, y).normalized)
+            );
+            if (!found) return (false, Vector2.zero);
+            if (visualize.p != null) visualize.p.At = point;
+            Vector2 pos = new(
+                Vector3.Dot(x, point - tl) / x.sqrMagnitude,
+                Vector3.Dot(y, point - tl) / y.sqrMagnitude
+            );
+            return (pos.x >= 0.0f && pos.x <= 1.0f && pos.y >= 0.0f && pos.y <= 1.0f, pos);
+        }
+
+        public void Visualize(Transform parent)
+        {
+            visualize = (
+                p: new(parent, 0.03f, VisualPrimitives.blue, "Pointing At") { At = tl },
+                l: new VisualPrimitives.Cylinder(parent, 0.02f, VisualPrimitives.blue, "Screen Left Side") { Between = (tl, tl + y) },
+                r: new VisualPrimitives.Cylinder(parent, 0.02f, VisualPrimitives.blue, "Screen Right Side") { Between = (tl + x, tl + y + x) },
+                t: new VisualPrimitives.Cylinder(parent, 0.02f, VisualPrimitives.blue, "Screen Top Side") { Between = (tl, tl + x) },
+                b: new VisualPrimitives.Cylinder(parent, 0.02f, VisualPrimitives.blue, "Screen Bottom Side") { Between = (tl + y, tl + x + y) }
+            );
+        }
+        public void VisualizeRemove()
+        {
+            if (visualize.p != null)
+            {
+                visualize.p.Remove();
+                visualize.p = null;
+                visualize.l.Remove();
+                visualize.l = null;
+                visualize.r.Remove();
+                visualize.r = null;
+                visualize.t.Remove();
+                visualize.t = null;
+                visualize.b.Remove();
+                visualize.b = null;
+            }
         }
     }
 }

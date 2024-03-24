@@ -3,68 +3,71 @@ using System.IO;
 using UnityEngine;
 using Newtonsoft.Json;
 using System.Linq;
-using static BodyPointsProvider;
 using System;
 
-public class BodyPointsRecorder : MonoBehaviour
+namespace UserOnboarding
 {
-    [SerializeField]
-    BodyPointsProvider bodyPointsProvider;
-
-    [SerializeField] float capturesPerSecond = 15f;
-    [SerializeField] string outputFilePath = "recorded-body-points.json";
-
-    private bool waitCaptation;
-
-    private List<(PointState state, Vector3 pos)[]> recorded;
-    public void Start()
+    using static BodyPointsProvider;
+    public class BodyPointsRecorder : MonoBehaviour
     {
-        waitCaptation = true;
-        recorded = new List<(PointState, Vector3)[]>();
-        InvokeRepeating("CallBack", 0f, 1f / capturesPerSecond);
-        // Debug.Log(JsonConvert.SerializeObject(recorded));
-    }
+        [SerializeField]
+        BodyPointsProvider bodyPointsProvider;
 
-    public void CallBack()
-    {
-        var points = bodyPointsProvider.ProvidedPoints.Select(bodyPointsProvider.GetBodyPoint).ToArray();
-        if (waitCaptation)
+        [SerializeField] float capturesPerSecond = 15f;
+        [SerializeField] string outputFilePath = "recorded-body-points.json";
+
+        private bool waitCaptation;
+
+        private List<(PointState state, Vector3 pos)[]> recorded;
+        public void Start()
         {
-            foreach (var point in points)
+            waitCaptation = true;
+            recorded = new List<(PointState, Vector3)[]>();
+            InvokeRepeating("CallBack", 0f, 1f / capturesPerSecond);
+            // Debug.Log(JsonConvert.SerializeObject(recorded));
+        }
+
+        public void CallBack()
+        {
+            var points = bodyPointsProvider.ProvidedPoints.Select(bodyPointsProvider.GetBodyPoint).ToArray();
+            if (waitCaptation)
             {
-                if (point.state == PointState.Tracked) waitCaptation = false;
+                foreach (var point in points)
+                {
+                    if (point.state == PointState.Tracked) waitCaptation = false;
+                }
+            }
+            else
+            {
+                recorded.Add(points);
             }
         }
-        else
-        {
-            recorded.Add(points);
-        }
-    }
 
-    public void OnDestroy()
-    {
-        if (recorded.Count > 0)
+        public void OnDestroy()
         {
-            File.WriteAllText(outputFilePath, JsonConvert.SerializeObject(new Recorded
+            if (recorded.Count > 0)
             {
-                hertz = capturesPerSecond,
-                columns = bodyPointsProvider.ProvidedPoints.Select(v => v.ToString()).ToArray(),
-                data = recorded.Select(v => v.Select(v => new float[] { v.pos.x, v.pos.y, v.pos.z, v.state switch {
+                File.WriteAllText(outputFilePath, JsonConvert.SerializeObject(new Recorded
+                {
+                    hertz = capturesPerSecond,
+                    columns = bodyPointsProvider.ProvidedPoints.Select(v => v.ToString()).ToArray(),
+                    data = recorded.Select(v => v.Select(v => new float[] { v.pos.x, v.pos.y, v.pos.z, v.state switch {
                     PointState.NotProvided => 0f,
                     PointState.Tracked => 1f,
                     PointState.Inferred => 2f,
                     PointState.NotTracked => 3f,
                     _ => throw new InvalidOperationException()
                 }}).ToArray()).ToArray(),
-            }));
+                }));
+            }
         }
-    }
 
-    [System.Serializable]
-    private struct Recorded
-    {
-        public float hertz;
-        public string[] columns;
-        public float[][][] data;
+        [System.Serializable]
+        private struct Recorded
+        {
+            public float hertz;
+            public string[] columns;
+            public float[][][] data;
+        }
     }
 }

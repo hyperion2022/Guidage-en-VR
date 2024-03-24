@@ -1,36 +1,39 @@
 using UnityEngine;
 using UnityEngine.Assertions;
 
-class CursorFeedBack : MonoBehaviour
+namespace UserOnboarding
 {
-    [SerializeField] RectTransform bottomLeft;
-    [SerializeField] RectTransform cursor;
-
-    private ScreenPointing screenPointing;
-
-    void Start()
+    class CursorFeedBack : MonoBehaviour
     {
-        screenPointing = GetComponent<ScreenPointing>();
-        Assert.IsNotNull(screenPointing);
-    }
-    private void PlaceOnCanvasFromNormalizedPos(RectTransform rectTransform, Vector2 pos)
-    {
-        pos *= 2f;
-        pos -= Vector2.one;
-        pos.Scale(-bottomLeft.localPosition);
-        rectTransform.localPosition = new(pos.x, pos.y, rectTransform.localPosition.z);
-    }
+        [SerializeField] RectTransform bottomLeft;
+        [SerializeField] RectTransform cursor;
 
-    void Update()
-    {
-        if (screenPointing.pointing.mode == ScreenPointing.PointingMode.Body)
+        private ScreenPointing screenPointing;
+
+        void Start()
         {
-            cursor.gameObject.SetActive(true);
-            PlaceOnCanvasFromNormalizedPos(cursor, screenPointing.pointing.atNorm);
+            screenPointing = GetComponent<ScreenPointing>();
+            Assert.IsNotNull(screenPointing);
         }
-        else
+        private void PlaceOnCanvasFromNormalizedPos(RectTransform rectTransform, Vector2 pos)
         {
-            cursor.gameObject.SetActive(false);
+            pos *= 2f;
+            pos -= Vector2.one;
+            pos.Scale(-bottomLeft.localPosition);
+            rectTransform.localPosition = new(pos.x, pos.y, rectTransform.localPosition.z);
+        }
+
+        void Update()
+        {
+            if (screenPointing.pointing.mode == ScreenPointing.PointingMode.Body)
+            {
+                cursor.gameObject.SetActive(true);
+                PlaceOnCanvasFromNormalizedPos(cursor, screenPointing.pointing.atNorm);
+            }
+            else
+            {
+                cursor.gameObject.SetActive(false);
+            }
         }
     }
 }

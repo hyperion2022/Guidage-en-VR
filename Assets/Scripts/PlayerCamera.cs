@@ -1,23 +1,20 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using static UnityEngine.GraphicsBuffer;
 
-public class PlayerCamera : MonoBehaviour
+namespace UserOnboarding
 {
-    private Vector3 displacement;
-    private Quaternion delta;
-    [SerializeField] GameObject Player;
-
-    // Start is called before the first frame update
-    void Start()
+    public class PlayerCamera : MonoBehaviour
     {
-        displacement = Player.transform.position - transform.position;
-    }
+        private Vector3 displacement;
+        [SerializeField] GameObject Player;
 
-    // Update is called once per frame
-    void Update()
-    {
-        transform.position = Player.transform.position - displacement;
+        void Start()
+        {
+            displacement = Player.transform.position - transform.position;
+        }
+
+        void Update()
+        {
+            transform.position = Player.transform.position - displacement;
+        }
     }
 }
