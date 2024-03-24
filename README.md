@@ -9,9 +9,14 @@ Projet de fin d'études: Aide de guidage en réalité virtuelle pour les spectat
 
 This project implements a screen pointing direction detection method using your pointer. It is based on the hand detection of a Kinect device coupled with the HandPoseBarracuda project.
 
-It detects when you are pointing at your screen with your index finger and allows you to highlight obects and place pings/tags in the scene.
+It detects when you are pointing at your screen with your index finger and allows you to highlight objects and place pings/tags in the scene.
 
-You can introduce a 3d model of your tracked body in the scene in real time and break isolation by using hand gestures.
+You can introduce a 3D model of your tracked body in the scene in real time and break the isolation from other users by using hand gestures.
+
+3 demo videos are available here:
+- https://youtu.be/3mrPiO7Izbg?si=TqAnH0tzmxjRZ8YI
+- https://youtu.be/3LOeghUUq1E?si=M4hZ5L9VA3i7DYoC
+- https://youtu.be/51O50HOYqTQ?si=LVh63zBdTX8y6qf0
 
 ### Prerequisites
 
@@ -37,7 +42,7 @@ The instructions are given as text. The Kinect has to be connected. The validati
 ---------------------------------
 ### Interface: BodyPointsProvider
 
-The Kinect Handle prefab inherits from an abstract class called BodyPointsProvider. The KinectHandle is not the only one inheriting from it. Any object that produces real-time body points tracking may implement it (or inherit from it).
+The KinectHandle prefab inherits from an abstract class called BodyPointsProvider. The KinectHandle is not the only one inheriting from it. Any object that produces real-time body points tracking may implement it (or inherit from it).
 
 
 | Members     |                     |                                                        |
@@ -82,12 +87,12 @@ Gives a pointing feedback by showing a cursor where the pointing position is inf
 
 #### ObjectHighlighter
 
-Highlights the pointed object in the scene, by just hovering over it or by clicking it.
+Highlights the pointed object in the scene, just by hovering over it or by clicking on it.
 
 | Properties | Type     |                                                                      |
 |------------|----------|----------------------------------------------------------------------|
 | KeyCodes   | `List<KeyCode>` | Which key press triggers object selection |
-| Hovering   | `bool`   | While an object is just pointed at, it is highlighted                |
+| Hovering   | `bool`   | While an object is only pointed at, it is highlighted                |
 | SizeLimit  | `float`  | The highlight will ignore any object with a size exceeding the limit |
 
 #### PingManager
