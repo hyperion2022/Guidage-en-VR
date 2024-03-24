@@ -1,4 +1,4 @@
-using MediaPipe.HandPose;
+using MediaPipe;
 using UnityEngine;
 using JointType = Windows.Kinect.JointType;
 using System.Linq;

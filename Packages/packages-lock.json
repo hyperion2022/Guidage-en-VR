@@ -136,28 +136,6 @@
       },
       "url": "https://registry.npmjs.com"
     },
-    "jp.keijiro.klak.testtools": {
-      "version": "1.2.0",
-      "depth": 0,
-      "source": "registry",
-      "dependencies": {
-        "com.unity.modules.audio": "1.0.0",
-        "com.unity.modules.unitywebrequest": "1.0.0",
-        "com.unity.modules.unitywebrequesttexture": "1.0.0",
-        "com.unity.modules.video": "1.0.0"
-      },
-      "url": "https://registry.npmjs.com"
-    },
-    "jp.keijiro.mediapipe.blazepalm": {
-      "version": "2.1.1",
-      "depth": 0,
-      "source": "registry",
-      "dependencies": {
-        "com.unity.barracuda": "3.0.0",
-        "jp.keijiro.klak.nnutils": "1.3.0"
-      },
-      "url": "https://registry.npmjs.com"
-    },
     "jp.keijiro.mediapipe.handlandmark": {
       "version": "2.1.1",
       "depth": 0,
@@ -168,13 +146,6 @@
       },
       "url": "https://registry.npmjs.com"
     },
-    "jp.keijiro.test-assets": {
-      "version": "1.0.1",
-      "depth": 0,
-      "source": "registry",
-      "dependencies": {},
-      "url": "https://registry.npmjs.com"
-    },
     "com.unity.modules.animation": {
       "version": "1.0.0",
       "depth": 2,
@@ -183,7 +154,7 @@
     },
     "com.unity.modules.audio": {
       "version": "1.0.0",
-      "depth": 1,
+      "depth": 2,
       "source": "builtin",
       "dependencies": {}
     },
@@ -231,31 +202,6 @@
       "depth": 1,
       "source": "builtin",
       "dependencies": {}
-    },
-    "com.unity.modules.unitywebrequest": {
-      "version": "1.0.0",
-      "depth": 1,
-      "source": "builtin",
-      "dependencies": {}
-    },
-    "com.unity.modules.unitywebrequesttexture": {
-      "version": "1.0.0",
-      "depth": 1,
-      "source": "builtin",
-      "dependencies": {
-        "com.unity.modules.unitywebrequest": "1.0.0",
-        "com.unity.modules.imageconversion": "1.0.0"
-      }
-    },
-    "com.unity.modules.video": {
-      "version": "1.0.0",
-      "depth": 1,
-      "source": "builtin",
-      "dependencies": {
-        "com.unity.modules.audio": "1.0.0",
-        "com.unity.modules.ui": "1.0.0",
-        "com.unity.modules.unitywebrequest": "1.0.0"
-      }
     }
   }
 }

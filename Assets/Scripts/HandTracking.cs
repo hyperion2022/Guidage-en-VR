@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Assertions;
 using UnityEngine.Rendering;
 
 namespace UserOnboarding
@@ -9,7 +10,7 @@ namespace UserOnboarding
     {
         public Vector4[] HandPoints = Enumerable.Repeat(Vector4.zero, KeyPointCount).ToArray();
         public const int KeyPointCount = 21;
-        readonly MediaPipe.HandPose.ResourceSet resourceSet;
+        readonly MediaPipe.ResourceSet resourceSet;
 
         // this detect where the hand is on the image
         readonly MediaPipe.BlazePalm.PalmDetector palm;
@@ -21,8 +22,9 @@ namespace UserOnboarding
         public readonly ComputeBuffer StatBuffer;
         public Vector4[] Stat;
         public bool Busy;
-        public HandTracking(MediaPipe.HandPose.ResourceSet resources)
+        public HandTracking(MediaPipe.ResourceSet resources)
         {
+            Assert.IsNotNull(resources);
             Busy = false;
             resourceSet = resources;
 
