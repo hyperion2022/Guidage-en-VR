@@ -13,7 +13,7 @@ It detects when you are pointing at your screen with your index finger and allow
 
 You can introduce a 3D model of your tracked body in the scene in real time and break the isolation from other users by using hand gestures.
 
-An installation tutorial (in French) is available here: https://www.youtube.com/watch?v=Vo7gqL1Ylao&list=PL2p0aggZPpCXgwYPFILJMbGsMjDVhTx7n
+An installation tutorial (in French) is available here: https://youtu.be/Vo7gqL1Ylao?si=NF2aNvuAIeH9yE28
 
 3 demo videos are also available here:
 - https://youtu.be/3mrPiO7Izbg?si=TqAnH0tzmxjRZ8YI
