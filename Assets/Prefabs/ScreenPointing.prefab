@@ -135,6 +135,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   keyCodes: 4501000070000000
+  pingAudio: {fileID: 8300000, guid: 57d3fb7015179b5409284a834276c306, type: 3}
   pingPrefab: {fileID: 2350269127959651571}
   bottomLeft: {fileID: 7664960483515951149}
 --- !u!114 &1702882105866527366

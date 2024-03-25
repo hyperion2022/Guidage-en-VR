@@ -1,3 +1,4 @@
+using Unity.Barracuda;
 using UnityEngine;
 using UnityEngine.Assertions;
 
@@ -30,10 +31,11 @@ namespace UserOnboarding
             canvas.targetDisplay = targetCamera.targetDisplay;
             Assert.IsNotNull(targetCamera);
             try { calibration = Calibration.LoadFromFile(calibrationFilePath); }
-            catch { }
+            catch {
+            }
             if (bodyPointsProvider != null)
             {
-                Assert.IsNotNull(calibration);
+                Assert.IsNotNull(calibration, "Calibration not found. Launch calibration step and make sure the path to the file is correct.");
                 bodyPointsProvider.BodyPointsChanged += OnBodyPointsChange;
             }
         }

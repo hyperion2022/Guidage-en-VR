@@ -8,6 +8,7 @@ namespace UserOnboarding
     public class PingManager : MonoBehaviour
     {
         [SerializeField] List<KeyCode> keyCodes;
+        [SerializeField] AudioClip pingAudio;
         [SerializeField] GameObject pingPrefab;
         [SerializeField] RectTransform bottomLeft;
         public Dictionary<RectTransform, Vector3> Pings => pings;
@@ -89,6 +90,7 @@ namespace UserOnboarding
                                 var go = Instantiate(pingPrefab, transform).GetComponent<RectTransform>();
                                 go.gameObject.SetActive(true);
                                 pings.Add(go, hit.point);
+                                AudioSource.PlayClipAtPoint(pingAudio, hit.point);
                             }
                         }
 
