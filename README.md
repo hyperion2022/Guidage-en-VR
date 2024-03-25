@@ -25,6 +25,16 @@ An installation tutorial (in French) is available here: https://www.youtube.com/
 - Unity version 2022.3.19f1 or later
 - Kinect v2 (SDK to install: https://www.microsoft.com/en-us/download/details.aspx?id=44561)
 
+### Installation Instructions
+1. Download the user-onboarding.zip file from the root of the project.
+2. Unzip it.
+3. In your Unity project, open the Package Manager and press on +, then Import from disk.
+4. Look in the unzipped folder for package.json and choose it.
+5. You will now find the files inside the Assets/Packages folder.
+
+Below, you will find descriptions for all the different prefabs you can drag and drop into your desired scene.
+For more info, please refer to the tutorial video.
+
 ------------------------
 ### Prefab: KinectHandle
 
